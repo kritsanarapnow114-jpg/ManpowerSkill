@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;box-sizing:border-box}
+body{font-family:"Inter","Noto Sans Thai",ui-sans-serif,system-ui,sans-serif;background:#e9eff3;color:#1b2b36}
+a{color:#0c7f93;text-decoration:none}a:hover{color:#0a6b7c}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#c3d0da;border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+input[type=range]{accent-color:#0c7f93}
+input:focus{outline:none}
+</style>
+</helmet>
+<div style="display:flex;height:100vh;min-height:640px;overflow:hidden;background:#e9eff3">
+
+  <aside style="width:252px;flex:none;display:flex;flex-direction:column;background:linear-gradient(165deg,#0e8296 0%,#2a7fb0 46%,#7a45b5 100%);color:#fff;padding:18px 14px;gap:6px">
+    <div style="display:flex;align-items:center;gap:11px;padding:6px 6px 16px">
+      <div style="width:42px;height:42px;flex:none;border-radius:12px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);display:grid;place-items:center;font-weight:800;font-size:16px;letter-spacing:.5px">NB</div>
+      <div style="line-height:1.15">
+        <div style="font-weight:800;font-size:16px">NBC Skills</div>
+        <div style="font-size:11px;opacity:.8">ระบบข้อมูลความสามารถ</div>
+      </div>
+    </div>
+    <button style="{{ sOv }}" onClick="{{ goOverview }}">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>ภาพรวมทีม<br><span style="font-size:11px;opacity:.72">Team overview</span></span>
+    </button>
+    <button style="{{ sEmp }}" onClick="{{ goList }}">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>พนักงาน<br><span style="font-size:11px;opacity:.72">Employees</span></span>
+    </button>
+    <button style="{{ sTask }}" onClick="{{ goTasks }}">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>งานที่มอบหมาย<br><span style="font-size:11px;opacity:.72">Assigned tasks</span></span>
+    </button>
+    <div style="margin-top:auto;padding:12px;border-radius:12px;background:rgba(255,255,255,.12);font-size:12px">
+      <div style="font-weight:700">สายการประกอบ · Line A</div>
+      <div style="opacity:.78;margin-top:2px">อัปเดตล่าสุด · 5 ส.ค. 2026</div>
+    </div>
+  </aside>
+
+  <main style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <header style="display:flex;align-items:center;gap:16px;padding:15px 26px;background:#fff;border-bottom:1px solid #e6edf1">
+      <div style="min-width:0">
+        <div style="font-size:20px;font-weight:800;color:#132530">{{ pageTh }}</div>
+        <div style="font-size:12.5px;color:#7f8f9c">{{ pageEn }}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:8px;background:#f1f5f8;border:1px solid #e2e9ee;border-radius:10px;padding:9px 14px;color:#8494a1;font-size:13px;width:240px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span>ค้นหาพนักงาน / รหัส</span>
+        </div>
+        <button onClick="{{ addNew }}" style="display:flex;align-items:center;gap:7px;border:none;cursor:pointer;color:#fff;font-weight:700;font-size:13.5px;font-family:inherit;padding:10px 16px;border-radius:10px;background:linear-gradient(120deg,#7a45b5,#0e8296);box-shadow:0 8px 18px -8px rgba(12,127,147,.7)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+          เพิ่มพนักงาน
+        </button>
+      </div>
+    </header>
+
+    <div style="flex:1;overflow:auto;padding:24px 26px 40px">
+
+      <!-- ============ DETAIL ============ -->
+      <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <button onClick="{{ goList }}" style="display:inline-flex;align-items:center;gap:6px;border:none;background:none;cursor:pointer;color:#6b7c89;font-size:13.5px;font-family:inherit;margin-bottom:14px;font-weight:600">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg> กลับไปรายชื่อ
+        </button>
+
+        <div style="display:grid;grid-template-columns:1fr 316px;gap:20px;align-items:start">
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:24px 26px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:26px;font-weight:800;color:#132530;letter-spacing:.2px">{{ emp.nameEn }}</div>
+                <div style="font-size:15px;color:#48586580;color:#586573;margin-top:1px">{{ emp.name }} · {{ emp.position }}</div>
+              </div>
+              <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;font-weight:800;font-size:13px;color:#fff;background:{{ empLevelColor }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.4 6.9H22l-6 4.4 2.3 7L12 16l-6.3 4.3 2.3-7-6-4.4h7.6z"/></svg>
+                {{ emp.level }}
+              </span>
+              <button onClick="{{ editThis }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border:1px solid #0c7f93;background:#eaf7fa;color:#0c7f93;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;padding:9px 15px;border-radius:10px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+                แก้ไขคะแนน
+              </button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px">
+              <div style="border:1px solid #eef2f5;border-radius:14px;padding:16px 12px 20px;background:#fbfdfe">
+                <div style="text-align:center;font-weight:800;color:#2f8fd0;font-size:14px;margin-bottom:6px">Advance standard</div>
+                {{ radar1 }}
+              </div>
+              <div style="border:1px solid #eef2f5;border-radius:14px;padding:16px 12px 20px;background:#fbfdfe">
+                <div style="text-align:center;font-weight:800;color:#c78912;font-size:14px;margin-bottom:6px">%Skill judgment</div>
+                {{ radar2 }}
+              </div>
+            </div>
+
+            <div style="margin-top:22px">
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+                <span style="font-weight:800;font-size:15px;color:#132530">สถานี / เครื่องจักรที่ชำนาญ</span>
+                <span style="font-size:12.5px;color:#8494a1">Skilled stations</span>
+              </div>
+              <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:6px">
+                <sc-for list="{{ stations }}" as="s" hint-placeholder-count="6">
+                  <div style="flex:none;width:118px;border:1px solid #e6edf1;border-radius:13px;padding:12px;background:#fff">
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                      <div style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff;background:{{ s.color }}">{{ s.tag }}</div>
+                      <span style="font-weight:800;font-size:14px;color:{{ s.color }}">{{ s.pct }}%</span>
+                    </div>
+                    <div style="font-size:12px;font-weight:600;color:#3a4a57;margin-top:9px;line-height:1.25;height:30px;overflow:hidden">{{ s.name }}</div>
+                    <div style="height:5px;border-radius:5px;background:#eef2f5;margin-top:6px;overflow:hidden"><div style="height:100%;width:{{ s.pctStr }};background:{{ s.color }}"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;overflow:hidden;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+              <div style="height:150px;background:linear-gradient(150deg,#123a4a,#0e6a80 60%,#7a45b5);display:grid;place-items:center;position:relative">
+                <div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.14);border:3px solid rgba(255,255,255,.5);display:grid;place-items:center;font-size:30px;font-weight:800;color:#fff">{{ emp.initials }}</div>
+              </div>
+              <div style="padding:14px 16px 16px">
+                <div style="font-size:12px;color:#8494a1">รหัสพนักงาน · เข้าร่วม</div>
+                <div style="font-weight:700;color:#1b2b36;font-size:14px;margin-top:2px">{{ emp.empCode }} · {{ emp.join }}</div>
+              </div>
+            </div>
+
+            <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:16px 18px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+              <div style="font-size:12.5px;color:#8494a1">Total straight pass rate</div>
+              <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px">
+                <span style="font-size:38px;font-weight:800;color:#16a34a;line-height:1">{{ emp.pass }}</span>
+                <span style="font-size:20px;font-weight:800;color:#16a34a">%</span>
+              </div>
+              <div style="height:8px;border-radius:6px;background:#eef2f5;margin-top:10px;overflow:hidden"><div style="height:100%;width:{{ emp.passStr }};background:linear-gradient(90deg,#0e8296,#16a34a)"></div></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">
+                <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
+                  <div style="border:1px solid #eef2f5;border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:11px">
+                    <div style="width:38px;height:38px;flex:none;border-radius:50%;border:3px solid {{ st.color }};display:grid;place-items:center;font-weight:800;font-size:11px;color:#33434f">{{ st.val }}</div>
+                    <div style="font-size:11.5px;font-weight:600;color:#5a6a78;line-height:1.2">{{ st.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:16px 18px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:12.5px;color:#8494a1">งานที่มอบหมาย · Assigned tasks</div>
+                <button onClick="{{ goTasks }}" style="border:none;background:none;cursor:pointer;color:#0c7f93;font-weight:700;font-size:12px;font-family:inherit">จัดการ →</button>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
+                <span style="font-size:32px;font-weight:800;color:#7c4dbc;line-height:1">{{ empTaskPct }}<span style="font-size:18px">%</span></span>
+                <span style="font-size:12.5px;color:#8494a1;margin-left:auto">{{ empTaskDone }}/{{ empTaskTotal }} งานเสร็จ</span>
+              </div>
+              <div style="height:8px;border-radius:6px;background:#eef2f5;margin-top:10px;overflow:hidden"><div style="height:100%;width:{{ empTaskStr }};background:linear-gradient(90deg,#7a45b5,#0c7f93)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ LIST ============ -->
+      <sc-if value="{{ isList }}">
+      <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;overflow:auto;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+       <div style="min-width:940px">
+        <div style="display:grid;grid-template-columns:96px minmax(190px,1.6fr) 150px 118px minmax(150px,1.4fr) 84px 96px;gap:10px;padding:14px 20px;background:#f5f8fa;border-bottom:1px solid #e6edf1;font-size:11.5px;font-weight:700;color:#7f8f9c;text-transform:uppercase;letter-spacing:.4px">
+          <div>รหัส</div><div>ชื่อ - สกุล</div><div>ตำแหน่ง</div><div>ระดับ</div><div>คะแนนเฉลี่ย</div><div style="text-align:center">Pass</div><div></div>
+        </div>
+        <sc-for list="{{ list }}" as="e" hint-placeholder-count="8">
+          <div onClick="{{ e.open }}" style="display:grid;grid-template-columns:96px minmax(190px,1.6fr) 150px 118px minmax(150px,1.4fr) 84px 96px;gap:10px;padding:13px 20px;border-bottom:1px solid #f0f4f6;align-items:center;cursor:pointer;font-size:13.5px" style-hover="background:#f7fafb">
+            <div style="font-weight:700;color:#0c7f93;font-size:13px">{{ e.empCode }}</div>
+            <div style="display:flex;align-items:center;gap:11px;min-width:0">
+              <div style="width:36px;height:36px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12.5px;color:#fff;background:{{ e.avatarBg }}">{{ e.initials }}</div>
+              <div style="min-width:0">
+                <div style="font-weight:700;color:#1b2b36;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.nameEn }}</div>
+                <div style="font-size:12px;color:#8494a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.name }}</div>
+              </div>
+            </div>
+            <div style="color:#5a6a78">{{ e.position }}</div>
+            <div><span style="display:inline-block;padding:4px 11px;border-radius:999px;font-weight:700;font-size:12px;color:#fff;background:{{ e.lvlColor }}">{{ e.level }}</span></div>
+            <div style="display:flex;align-items:center;gap:9px">
+              <div style="flex:1;height:7px;border-radius:5px;background:#eef2f5;overflow:hidden"><div style="height:100%;width:{{ e.avgStr }};background:{{ e.lvlColor }}"></div></div>
+              <span style="font-weight:800;color:#33434f;font-size:13px;width:34px">{{ e.avg }}%</span>
+            </div>
+            <div style="text-align:center;font-weight:800;color:{{ e.passColor }}">{{ e.pass }}%</div>
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              <button onClick="{{ e.edit }}" style="border:1px solid #e2e9ee;background:#fff;cursor:pointer;border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;color:#5a6a78;font-weight:600">แก้ไข</button>
+            </div>
+          </div>
+        </sc-for>
+       </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ OVERVIEW ============ -->
+      <sc-if value="{{ isOverview }}">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px">
+          <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+            <div style="background:#fff;border:1px solid #e2e9ee;border-radius:14px;padding:16px 16px 15px;box-shadow:0 20px 38px -32px rgba(16,40,54,.4);position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:4px;background:{{ k.color }}"></div>
+              <div style="display:flex;align-items:center;gap:9px">
+                <div style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;background:{{ k.color }}">{{ k.icon }}</div>
+                <div style="font-size:12.5px;color:#6b7c89;font-weight:600">{{ k.label }}</div>
+              </div>
+              <div style="font-size:30px;font-weight:800;color:#132530;margin-top:10px;line-height:1">{{ k.value }}</div>
+              <div style="font-size:11.5px;color:#93a1ac;margin-top:4px">{{ k.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-top:18px">
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:20px 22px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+            <div style="font-weight:800;font-size:15px;color:#132530">ความครอบคลุมสถานี <span style="font-weight:600;font-size:12.5px;color:#8494a1">· คนที่ผ่านเกณฑ์ ≥80%</span></div>
+            <div style="display:flex;flex-direction:column;gap:13px;margin-top:16px">
+              <sc-for list="{{ coverage }}" as="c" hint-placeholder-count="10">
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+                    <span style="font-weight:600;color:#3a4a57">{{ c.name }}</span>
+                    <span style="font-weight:700;color:#5a6a78">{{ c.qualified }}/{{ c.total }} คน</span>
+                  </div>
+                  <div style="height:9px;border-radius:6px;background:#eef2f5;overflow:hidden"><div style="height:100%;width:{{ c.pctStr }};background:{{ c.color }}"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:20px 22px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+            <div style="font-weight:800;font-size:15px;color:#132530">Top performers <span style="font-weight:600;font-size:12.5px;color:#8494a1">· คะแนนเฉลี่ยสูงสุด</span></div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+              <sc-for list="{{ top }}" as="t" hint-placeholder-count="5">
+                <div onClick="{{ t.open }}" style="display:flex;align-items:center;gap:12px;padding:9px 10px;border:1px solid #eef2f5;border-radius:12px;cursor:pointer" style-hover="background:#f7fafb">
+                  <div style="width:26px;font-weight:800;color:#b0bcc6;font-size:15px;text-align:center">{{ t.rank }}</div>
+                  <div style="width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff;background:{{ t.avatarBg }}">{{ t.initials }}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:700;font-size:13.5px;color:#1b2b36;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.nameEn }}</div>
+                    <div style="font-size:11.5px;color:#8494a1">{{ t.level }}</div>
+                  </div>
+                  <div style="font-weight:800;font-size:17px;color:#16a34a">{{ t.avg }}%</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ FORM ============ -->
+      <sc-if value="{{ isForm }}">
+      <div style="max-width:1040px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-weight:800;font-size:18px;color:#132530">แก้ไขคะแนนความสามารถ</div>
+            <div style="font-size:12.5px;color:#8494a1">ปรับคะแนนแล้วกราฟจะอัปเดตทันที · กดบันทึกเพื่อจัดเก็บ</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:10px">
+            <button onClick="{{ cancel }}" style="border:1px solid #e2e9ee;background:#fff;cursor:pointer;font-weight:700;font-size:13.5px;font-family:inherit;padding:10px 18px;border-radius:10px;color:#5a6a78">ยกเลิก</button>
+            <button onClick="{{ save }}" style="border:none;cursor:pointer;color:#fff;font-weight:700;font-size:13.5px;font-family:inherit;padding:10px 20px;border-radius:10px;background:linear-gradient(120deg,#7a45b5,#0e8296);box-shadow:0 8px 18px -8px rgba(12,127,147,.7)">บันทึกข้อมูล</button>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:20px 22px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <label style="font-size:12.5px;font-weight:700;color:#5a6a78">ชื่อ (EN)<input value="{{ dr.nameEn }}" onInput="{{ setNameEn }}" style="display:block;width:100%;margin-top:6px;border:1px solid #dbe3e9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1b2b36;font-weight:500"></label>
+            <label style="font-size:12.5px;font-weight:700;color:#5a6a78">ชื่อ (ไทย)<input value="{{ dr.name }}" onInput="{{ setName }}" style="display:block;width:100%;margin-top:6px;border:1px solid #dbe3e9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1b2b36;font-weight:500"></label>
+            <label style="font-size:12.5px;font-weight:700;color:#5a6a78">ตำแหน่ง<input value="{{ dr.position }}" onInput="{{ setPos }}" style="display:block;width:100%;margin-top:6px;border:1px solid #dbe3e9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1b2b36;font-weight:500"></label>
+            <label style="font-size:12.5px;font-weight:700;color:#5a6a78">รหัสพนักงาน<input value="{{ dr.empCode }}" onInput="{{ setCode }}" style="display:block;width:100%;margin-top:6px;border:1px solid #dbe3e9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1b2b36;font-weight:500"></label>
+          </div>
+          <div style="margin-top:16px">
+            <div style="font-size:12.5px;font-weight:700;color:#5a6a78;margin-bottom:8px">ระดับความสามารถ</div>
+            <div style="display:flex;gap:10px">
+              <sc-for list="{{ dLevels }}" as="lv" hint-placeholder-count="3">
+                <button onClick="{{ lv.on }}" style="{{ lv.style }}">{{ lv.l }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px">
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:18px 20px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+            <div style="font-weight:800;color:#2f8fd0;font-size:14px;text-align:center">Advance standard</div>
+            <div style="padding:6px 0 4px">{{ dRadar1 }}</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:8px">
+              <sc-for list="{{ dG1 }}" as="a" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="flex:1;font-size:12.5px;font-weight:600;color:#3a4a57">{{ a.label }}</span>
+                  <input type="range" min="0" max="100" value="{{ a.v }}" onInput="{{ a.on }}" style="flex:1.4">
+                  <span style="width:42px;text-align:right;font-weight:800;color:#2f8fd0;font-size:13px">{{ a.v }}%</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:18px 20px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+            <div style="font-weight:800;color:#c78912;font-size:14px;text-align:center">%Skill judgment</div>
+            <div style="padding:6px 0 4px">{{ dRadar2 }}</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:8px">
+              <sc-for list="{{ dG2 }}" as="a" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="flex:1;font-size:12.5px;font-weight:600;color:#3a4a57">{{ a.label }}</span>
+                  <input type="range" min="0" max="100" value="{{ a.v }}" onInput="{{ a.on }}" style="flex:1.4">
+                  <span style="width:42px;text-align:right;font-weight:800;color:#c78912;font-size:13px">{{ a.v }}%</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:18px 22px;margin-top:18px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+          <div style="font-weight:800;font-size:14px;color:#132530;margin-bottom:14px">ความชำนาญสถานี / เครื่องจักร</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 26px">
+            <sc-for list="{{ dSt }}" as="s" hint-placeholder-count="10">
+              <div style="display:flex;align-items:center;gap:12px">
+                <span style="flex:1;font-size:12.5px;font-weight:600;color:#3a4a57">{{ s.name }}</span>
+                <input type="range" min="0" max="100" value="{{ s.pct }}" onInput="{{ s.on }}" style="flex:1.3">
+                <span style="width:42px;text-align:right;font-weight:800;color:{{ s.color }};font-size:13px">{{ s.pct }}%</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ TASKS ============ -->
+      <sc-if value="{{ isTasks }}">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:14px;padding:16px 18px;box-shadow:0 20px 38px -32px rgba(16,40,54,.4);position:relative;overflow:hidden">
+            <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#0c7f93"></div>
+            <div style="font-size:12.5px;color:#6b7c89;font-weight:600">งานทั้งหมด · Total tasks</div>
+            <div style="font-size:30px;font-weight:800;color:#132530;margin-top:8px;line-height:1">{{ tkAll }}</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:14px;padding:16px 18px;box-shadow:0 20px 38px -32px rgba(16,40,54,.4);position:relative;overflow:hidden">
+            <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#16a34a"></div>
+            <div style="font-size:12.5px;color:#6b7c89;font-weight:600">เสร็จแล้ว · Completed</div>
+            <div style="font-size:30px;font-weight:800;color:#16a34a;margin-top:8px;line-height:1">{{ tkDone }}</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e9ee;border-radius:14px;padding:16px 18px;box-shadow:0 20px 38px -32px rgba(16,40,54,.4);position:relative;overflow:hidden">
+            <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#7c4dbc"></div>
+            <div style="font-size:12.5px;color:#6b7c89;font-weight:600">ความคืบหน้ารวม · Avg progress</div>
+            <div style="font-size:30px;font-weight:800;color:#7c4dbc;margin-top:8px;line-height:1">{{ tkAvg }}%</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:18px 22px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+          <div style="font-weight:800;font-size:15px;color:#132530;margin-bottom:12px">มอบหมายงานใหม่ <span style="font-weight:600;font-size:12.5px;color:#8494a1">· Assign a task</span></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <label style="font-size:12px;font-weight:700;color:#5a6a78;flex:1;min-width:180px">พนักงาน
+              <select value="{{ taskEmpId }}" onChange="{{ onSelEmp }}" style="display:block;width:100%;margin-top:6px;border:1px solid #dbe3e9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1b2b36;font-weight:500;background:#fff">
+                <sc-for list="{{ empOptions }}" as="o" hint-placeholder-count="8">
+                  <option value="{{ o.id }}">{{ o.label }}</option>
+                </sc-for>
+              </select>
+            </label>
+            <label style="font-size:12px;font-weight:700;color:#5a6a78;flex:2;min-width:220px">ชื่องาน / เป้าหมาย
+              <input value="{{ taskTitle }}" onInput="{{ onTaskTitle }}" placeholder="เช่น อบรมสถานี Torque, ประกอบ 50 ชิ้น/วัน" style="display:block;width:100%;margin-top:6px;border:1px solid #dbe3e9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1b2b36;font-weight:500">
+            </label>
+            <label style="font-size:12px;font-weight:700;color:#5a6a78;min-width:130px">กำหนดส่ง
+              <input value="{{ taskDue }}" onInput="{{ onTaskDue }}" placeholder="15 ส.ค." style="display:block;width:100%;margin-top:6px;border:1px solid #dbe3e9;border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1b2b36;font-weight:500">
+            </label>
+            <button onClick="{{ addTask }}" style="border:none;cursor:pointer;color:#fff;font-weight:700;font-size:13.5px;font-family:inherit;padding:11px 18px;border-radius:10px;background:linear-gradient(120deg,#7a45b5,#0e8296);box-shadow:0 8px 18px -8px rgba(12,127,147,.7)">+ มอบหมาย</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;margin-top:18px">
+          <sc-for list="{{ taskGroups }}" as="g" hint-placeholder-count="4">
+            <div style="background:#fff;border:1px solid #e2e9ee;border-radius:16px;padding:18px 22px;box-shadow:0 24px 44px -34px rgba(16,40,54,.4)">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+                <div style="width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff;background:{{ g.avatarBg }}">{{ g.initials }}</div>
+                <div style="min-width:0;flex:1">
+                  <div style="font-weight:700;font-size:14.5px;color:#1b2b36">{{ g.nameEn }}</div>
+                  <div style="font-size:12px;color:#8494a1">{{ g.name }} · {{ g.position }}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:11.5px;color:#8494a1">ผลงานเฉลี่ย</div>
+                  <div style="font-size:20px;font-weight:800;color:{{ g.pctColor }};line-height:1.1">{{ g.pct }}%</div>
+                </div>
+              </div>
+              <sc-if value="{{ g.hasTasks }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ g.tasks }}" as="t" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:14px;border:1px solid #eef2f5;border-radius:12px;padding:11px 14px">
+                    <div style="flex:1.4;min-width:0">
+                      <div style="font-weight:600;font-size:13.5px;color:#2a3a47">{{ t.title }}</div>
+                      <div style="font-size:11.5px;color:#94a1ac;margin-top:1px">{{ t.dueLabel }}</div>
+                    </div>
+                    <input type="range" min="0" max="100" value="{{ t.progress }}" onInput="{{ t.on }}" style="flex:1.6">
+                    <span style="width:44px;text-align:right;font-weight:800;color:{{ t.color }};font-size:14px">{{ t.progress }}%</span>
+                    <span style="{{ t.badgeStyle }}">{{ t.badge }}</span>
+                    <button onClick="{{ t.del }}" title="ลบงาน" style="border:none;background:none;cursor:pointer;color:#c2ccd4;padding:4px;display:grid;place-items:center" style-hover="color:#dc2626">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                    </button>
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
+              <sc-if value="{{ g.noTasks }}">
+              <div style="text-align:center;color:#a3b0ba;font-size:13px;padding:14px 0;border:1px dashed #dbe3e9;border-radius:12px">ยังไม่มีงานที่มอบหมาย</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:940},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;list&quot;,&quot;detail&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behavior&quot;},&quot;showEnglish&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behavior&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const seed = this.seedData();
+    let employees = seed;
+    try { const s = localStorage.getItem('emp_cap_v2'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)&&p.length) employees=p; } } catch(e){}
+    const st = this.seedTasks();
+    employees = employees.map(e=> e.tasks ? e : {...e, tasks: (st[e.id]||[]).map(t=>({...t})) });
+    const start = (props && props.startScreen) || 'detail';
+    this.state = { screen: start, selId: employees[0].id, employees, draft: null, taskEmp: employees[0].id, taskTitle:'', taskDue:'' };
+  }
+
+  seedTasks(){
+    return {
+      E1:[{id:'T1a',title:'อบรมสถานี Torque (ST-08)',due:'15 ส.ค.',progress:60},{id:'T1b',title:'ประกอบ 50 ชิ้น/วัน',due:'ทุกวัน',progress:85}],
+      E2:[{id:'T2a',title:'สอนงาน QC ให้พนักงานใหม่',due:'20 ส.ค.',progress:100},{id:'T2b',title:'ตรวจ Final 15 ล็อต',due:'10 ส.ค.',progress:80}],
+      E3:[{id:'T3a',title:'ฝึกลดของเสียให้ต่ำกว่า 2%',due:'31 ส.ค.',progress:40}],
+      E4:[{id:'T4a',title:'จัดตารางกำลังคน Line A',due:'12 ส.ค.',progress:100},{id:'T4b',title:'Kaizen ลด cycle time 10%',due:'30 ส.ค.',progress:55}],
+      E5:[{id:'T5a',title:'ผ่านเกณฑ์สถานี Painting (ST-05)',due:'25 ส.ค.',progress:70}],
+      E6:[{id:'T6a',title:'ตรวจ Visual 100 ชิ้น/กะ',due:'ทุกวัน',progress:90}],
+      E7:[{id:'T7a',title:'อบรม Basic standard',due:'18 ส.ค.',progress:30}],
+      E8:[{id:'T8a',title:'Certify สถานี Assembly A',due:'22 ส.ค.',progress:75}]
+    };
+  }
+
+  labels(){
+    return {
+      g1:[['การตรวจจับ\nของเสีย','Defect detection'],['การปฏิบัติตาม\nprocess','Process compliance'],['การทำงานตาม\nเวลาที่กำหนด','Cycle time'],['Feeling\njudgment','Feeling judgment'],['Basic\nstandard','Basic standard'],['ความปลอดภัย\n5ส','Safety 5S']],
+      g2:[['Visual\ninspection','Visual inspection'],['Torque\ncheck','Torque check'],['Assembly\nfit','Assembly fit'],['Function\ntest','Function test'],['Final\ncheck','Final check']],
+      st:[['ST-01','Press · ปั๊มขึ้นรูป'],['ST-02','Welding · เชื่อม'],['ST-03','Assembly A · ประกอบ A'],['ST-04','Assembly B · ประกอบ B'],['ST-05','Painting · พ่นสี'],['ST-06','QC Visual · ตรวจสายตา'],['ST-07','Packing · แพ็ค'],['ST-08','Torque · ขันแรง'],['ST-09','Testing · ทดสอบ'],['ST-10','Final · ตรวจปลายสาย']]
+    };
+  }
+
+  seedData(){
+    const L=this.labels();
+    const g1=(a)=>a.map((v,i)=>({k:L.g1[i][0],en:L.g1[i][1],v}));
+    const g2=(a)=>a.map((v,i)=>({k:L.g2[i][0],en:L.g2[i][1],v}));
+    const mk=(id,name,nameEn,position,level,empCode,join,a1,a2,st,stats)=>({id,name,nameEn,position,level,empCode,join,g1:g1(a1),g2:g2(a2),st,stats,pass:this.passOf(a1,a2)});
+    return [
+      mk('E1','นายอภิเดช สุขดี','MR. APIDACH SUKDEE','Senior Assembly Operator','Advance','EMP-1042','2019',[100,100,87,91,100,100],[94,94,76,94,94],[95,88,100,92,70,100,85,90,78,95],{today:'8/12',qc:'3/15',rework:'0/30',defect:'1/30'}),
+      mk('E2','นางสาวมนัสนันท์ ใจดี','MS. MANATNAN JAIDEE','QC Inspector','Expert','EMP-0871','2016',[100,100,100,96,100,100],[100,98,92,100,96],[80,75,95,90,88,100,80,95,96,100],{today:'11/12',qc:'12/15',rework:'0/30',defect:'0/30'}),
+      mk('E3','นายกฤษณะ วงศ์ทอง','MR. KRITSANA WONGTHONG','Assembly Operator','Basic','EMP-1120','2023',[85,70,72,64,90,80],[70,68,60,72,66],[60,40,75,68,30,55,70,50,45,58],{today:'5/12',qc:'0/15',rework:'2/30',defect:'3/30'}),
+      mk('E4','นางสาวปวีณา แสงจันทร์','MS. PAWEENA SANGCHAN','Line Leader','Expert','EMP-0654','2014',[100,100,98,100,100,100],[98,100,90,96,100],[92,90,100,98,85,100,90,96,94,100],{today:'12/12',qc:'10/15',rework:'0/30',defect:'0/30'}),
+      mk('E5','นายธนากร รักงาน','MR. THANAKORN RAKNGAN','Assembly Operator','Advance','EMP-1005','2020',[95,92,88,84,96,90],[90,88,80,86,90],[85,80,92,88,72,90,84,88,76,90],{today:'9/12',qc:'4/15',rework:'1/30',defect:'1/30'}),
+      mk('E6','นางสาวศิริพร มั่นคง','MS. SIRIPORN MANKONG','QC Inspector','Advance','EMP-0990','2021',[92,96,85,88,94,92],[92,90,82,90,88],[70,65,90,86,80,96,78,90,88,92],{today:'7/12',qc:'8/15',rework:'0/30',defect:'1/30'}),
+      mk('E7','นายวิชัย ตั้งใจ','MR. WICHAI TANGJAI','Assembly Operator','Basic','EMP-1201','2024',[78,62,66,58,84,74],[64,60,55,66,62],[50,35,66,60,25,48,62,44,40,52],{today:'4/12',qc:'0/15',rework:'3/30',defect:'4/30'}),
+      mk('E8','นางสาวจิราภา ดวงแก้ว','MS. JIRAPA DUANGKAEW','Senior Assembly Operator','Advance','EMP-0888','2018',[98,94,90,88,98,96],[92,94,84,90,92],[88,84,96,92,78,94,86,92,82,94],{today:'10/12',qc:'6/15',rework:'0/30',defect:'0/30'})
+    ];
+  }
+
+  passOf(a1,a2){ const all=[...a1,...a2]; return Math.round(all.reduce((s,x)=>s+x,0)/all.length); }
+  lvlColor(l){ return l==='Expert'?'#7c4dbc':l==='Advance'?'#0c7f93':'#64748b'; }
+  stColor(p){ return p>=90?'#16a34a':p>=75?'#0c7f93':p>=60?'#e0902e':'#dc2626'; }
+  avgOf(e){ return Math.round([...e.g1.map(x=>x.v),...e.g2.map(x=>x.v)].reduce((s,x)=>s+x,0)/(e.g1.length+e.g2.length)); }
+  initials(nameEn){ return String(nameEn).replace(/^(MR\.|MS\.)\s*/i,'').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+  avatarBg(l){ return l==='Expert'?'linear-gradient(135deg,#8b5bd0,#5a2f95)':l==='Advance'?'linear-gradient(135deg,#12a0b8,#0c6070)':'linear-gradient(135deg,#8494a1,#5a6a78)'; }
+  clamp(v){ v=parseInt(v,10); if(isNaN(v))v=0; return Math.max(0,Math.min(100,v)); }
+  persist(emps){ try{ localStorage.setItem('emp_cap_v2', JSON.stringify(emps)); }catch(e){} }
+
+  go(screen){ this.setState({ screen }); }
+  openEmp(id){ this.setState({ screen:'detail', selId:id }); }
+  editEmp(id){ const e=this.state.employees.find(x=>x.id===id); this.setState({ screen:'form', selId:id, draft: JSON.parse(JSON.stringify(e)) }); }
+  addNew(){
+    const L=this.labels();
+    const draft={ id:'E'+Date.now(), name:'พนักงานใหม่', nameEn:'NEW EMPLOYEE', position:'Assembly Operator', level:'Basic', empCode:'EMP-', join:'2026',
+      g1:L.g1.map(x=>({k:x[0],en:x[1],v:0})), g2:L.g2.map(x=>({k:x[0],en:x[1],v:0})), st:Array(10).fill(0), stats:{today:'0/0',qc:'0/0',rework:'0/0',defect:'0/0'}, pass:0 };
+    this.setState({ screen:'form', selId:draft.id, draft });
+  }
+  updAxis(g,i,val){ const d=JSON.parse(JSON.stringify(this.state.draft)); d[g][i].v=this.clamp(val); this.setState({draft:d}); }
+  updSt(i,val){ const d=JSON.parse(JSON.stringify(this.state.draft)); d.st[i]=this.clamp(val); this.setState({draft:d}); }
+  setField(k,v){ this.setState({ draft:{ ...this.state.draft, [k]:v } }); }
+  save(){
+    const d=JSON.parse(JSON.stringify(this.state.draft));
+    d.pass=this.passOf(d.g1.map(x=>x.v), d.g2.map(x=>x.v));
+    const emps=this.state.employees.slice();
+    const idx=emps.findIndex(e=>e.id===d.id);
+    if(idx>=0) emps[idx]=d; else emps.push(d);
+    this.persist(emps);
+    this.setState({ employees:emps, draft:null, screen:'detail', selId:d.id });
+  }
+  cancel(){ const exists=this.state.employees.some(e=>e.id===this.state.selId); this.setState({ draft:null, screen: exists?'detail':'list' }); }
+
+  taskColor(p){ return p>=100?'#16a34a':p>=50?'#0c7f93':p>=1?'#e0902e':'#94a3b8'; }
+  taskPct(e){ const t=e.tasks||[]; if(!t.length) return 0; return Math.round(t.reduce((s,x)=>s+this.clamp(x.progress),0)/t.length); }
+  addTask(){
+    const id=this.state.taskEmp||this.state.selId;
+    const title=(this.state.taskTitle||'').trim(); if(!title) return;
+    const emps=JSON.parse(JSON.stringify(this.state.employees));
+    const e=emps.find(x=>x.id===id); if(!e) return;
+    if(!e.tasks) e.tasks=[];
+    e.tasks.push({ id:'T'+Date.now(), title, due:(this.state.taskDue||'').trim(), progress:0 });
+    this.persist(emps);
+    this.setState({ employees:emps, taskTitle:'', taskDue:'' });
+  }
+  updTask(empId,taskId,val){
+    const emps=JSON.parse(JSON.stringify(this.state.employees));
+    const e=emps.find(x=>x.id===empId); if(!e||!e.tasks) return;
+    const t=e.tasks.find(x=>x.id===taskId); if(!t) return;
+    t.progress=this.clamp(val); this.persist(emps); this.setState({ employees:emps });
+  }
+  delTask(empId,taskId){
+    const emps=JSON.parse(JSON.stringify(this.state.employees));
+    const e=emps.find(x=>x.id===empId); if(!e||!e.tasks) return;
+    e.tasks=e.tasks.filter(x=>x.id!==taskId); this.persist(emps); this.setState({ employees:emps });
+  }
+
+  radar(axes,color,fill){
+    const R=95,cx=155,cy=140,n=axes.length,h=React.createElement;
+    const ang=i=>-Math.PI/2+i*2*Math.PI/n;
+    const pt=(i,r)=>[cx+Math.cos(ang(i))*r, cy+Math.sin(ang(i))*r];
+    const grid=[0.25,0.5,0.75,1].map((rr,ri)=>h('polygon',{key:'g'+ri,points:axes.map((_,i)=>pt(i,R*rr).join(',')).join(' '),fill:ri===3?'#f4f8fb':'none',stroke:'#d8e0e7',strokeWidth:1}));
+    const spokes=axes.map((_,i)=>h('line',{key:'s'+i,x1:cx,y1:cy,x2:pt(i,R)[0],y2:pt(i,R)[1],stroke:'#d8e0e7',strokeWidth:1}));
+    const dp=axes.map((a,i)=>pt(i,R*(this.clamp(a.v)/100)));
+    const poly=h('polygon',{points:dp.map(p=>p.join(',')).join(' '),fill:fill,stroke:color,strokeWidth:2.5,strokeLinejoin:'round'});
+    const dots=dp.map((p,i)=>h('circle',{key:'d'+i,cx:p[0],cy:p[1],r:3.4,fill:'#fff',stroke:color,strokeWidth:2}));
+    const labels=axes.map((a,i)=>{
+      const p=pt(i,R+20), lx=p[0], ly=p[1], c=Math.cos(ang(i)), s=Math.sin(ang(i));
+      const anchor=Math.abs(c)<0.35?'middle':(c>0?'start':'end');
+      const lines=String(a.k).split('\n');
+      let y0=ly; if(s<-0.35) y0=ly-lines.length*11;
+      const tsp=lines.map((ln,li)=>h('text',{key:'t'+li,x:lx,y:y0+li*11,textAnchor:anchor,fontSize:9.5,fontWeight:600,fill:'#42525f',style:{fontFamily:'inherit'}},ln));
+      const val=h('text',{key:'v',x:lx,y:y0+lines.length*11+2,textAnchor:anchor,fontSize:12,fontWeight:800,fill:color,style:{fontFamily:'inherit'}},a.v+'%');
+      return h('g',{key:'l'+i},...tsp,val);
+    });
+    return h('svg',{viewBox:'0 0 310 300',style:{width:'100%',maxWidth:'340px',overflow:'visible',display:'block',margin:'0 auto'}},...grid,...spokes,poly,...dots,...labels);
+  }
+
+  renderVals(){
+    const L=this.labels();
+    const { screen, selId, employees, draft } = this.state;
+    const showEng = this.props && this.props.showEnglish!=null ? this.props.showEnglish : true;
+    const emp = employees.find(e=>e.id===selId) || employees[0];
+
+    const pageMap={ overview:['ภาพรวมทีม','Team capability overview'], list:['พนักงานทั้งหมด','All employees'], detail:['ข้อมูลความสามารถพนักงาน','Employee capability profile'], form:['แก้ไขคะแนนความสามารถ','Edit capability scores'], tasks:['งานที่มอบหมาย','Assigned tasks & progress'] };
+    const pg=pageMap[screen]||pageMap.detail;
+
+    const navBase={display:'flex',alignItems:'center',gap:'12px',padding:'11px 13px',borderRadius:'11px',cursor:'pointer',border:'none',width:'100%',textAlign:'left',fontFamily:'inherit',fontSize:'14px',lineHeight:1.15};
+    const navActive={...navBase,background:'#fff',color:'#0c7f93',fontWeight:700,boxShadow:'0 8px 18px -10px rgba(0,0,0,.45)'};
+    const navIdle={...navBase,background:'transparent',color:'rgba(255,255,255,.9)',fontWeight:500};
+    const isEmpScreen = screen==='list'||screen==='detail'||screen==='form';
+
+    const badgeStyle=(p)=>{ const c=this.taskColor(p); const done=p>=100; return {display:'inline-block',padding:'3px 9px',borderRadius:'999px',fontSize:'11px',fontWeight:700,whiteSpace:'nowrap',color:done?'#0f7a34':c,background:done?'#dcfce7':(p>=1?'#f1f5f8':'#f1f5f8')}; };
+    const taskEmpId = employees.some(e=>e.id===this.state.taskEmp) ? this.state.taskEmp : (selId||employees[0].id);
+    const empOptions = employees.map(e=>({ id:e.id, label:e.empCode+' · '+(showEng?e.nameEn:e.name) }));
+    const taskGroups = employees.map(e=>{
+      const tks=(e.tasks||[]).map(t=>({ id:t.id, title:t.title, progress:this.clamp(t.progress), dueLabel: t.due?('กำหนดส่ง '+t.due):'ไม่มีกำหนด', color:this.taskColor(t.progress), badge: t.progress>=100?'เสร็จ':(t.progress>=1?'กำลังทำ':'ยังไม่เริ่ม'), badgeStyle:badgeStyle(t.progress), on:(ev)=>this.updTask(e.id,t.id,ev.target.value), del:()=>this.delTask(e.id,t.id) }));
+      const pct=this.taskPct(e);
+      return { id:e.id, name:e.name, nameEn:showEng?e.nameEn:e.name, position:e.position, initials:this.initials(e.nameEn), avatarBg:this.avatarBg(e.level), tasks:tks, hasTasks:tks.length>0, noTasks:tks.length===0, pct, pctColor:this.taskColor(pct) };
+    });
+    let tkAll=0,tkDone=0,tkSum=0,tkN=0;
+    employees.forEach(e=>{ (e.tasks||[]).forEach(t=>{ tkAll++; tkSum+=this.clamp(t.progress); tkN++; if(this.clamp(t.progress)>=100) tkDone++; }); });
+    const tkAvg = tkN? Math.round(tkSum/tkN):0;
+
+    const empTaskTotal=(emp.tasks||[]).length;
+    const empTaskDone=(emp.tasks||[]).filter(t=>this.clamp(t.progress)>=100).length;
+    const empTaskPct=this.taskPct(emp);
+
+    const stations = emp.st.map((p,i)=>({ tag:L.st[i][0].replace('ST-',''), name:L.st[i][1], pct:p, pctStr:p+'%', color:this.stColor(p) }));
+    const stats = [
+      {label:'ประกอบวันนี้',val:emp.stats.today,color:'#0c7f93'},
+      {label:'ตรวจ QC',val:emp.stats.qc,color:'#7c4dbc'},
+      {label:'แก้ไขงาน',val:emp.stats.rework,color:'#e0902e'},
+      {label:'ของเสีย',val:emp.stats.defect,color:'#dc2626'}
+    ];
+
+    const list = employees.map(e=>{ const avg=this.avgOf(e); return {
+      id:e.id, empCode:e.empCode, name:e.name, nameEn:e.nameEn, position:e.position, level:e.level, pass:e.pass,
+      initials:this.initials(e.nameEn), avatarBg:this.avatarBg(e.level), lvlColor:this.lvlColor(e.level),
+      avg, avgStr:avg+'%', passColor: e.pass>=95?'#16a34a':e.pass>=85?'#0c7f93':'#e0902e',
+      open:()=>this.openEmp(e.id), edit:(ev)=>{ if(ev&&ev.stopPropagation)ev.stopPropagation(); this.editEmp(e.id); }
+    };});
+
+    const counts={Basic:0,Advance:0,Expert:0}; employees.forEach(e=>counts[e.level]++);
+    const teamAvgPass=Math.round(employees.reduce((s,e)=>s+e.pass,0)/employees.length);
+    const kpiCards=[
+      {label:'พนักงานทั้งหมด',value:employees.length,sub:'คนในสาย Line A',color:'#0c7f93',icon:'#'},
+      {label:'Expert',value:counts.Expert,sub:'ระดับผู้เชี่ยวชาญ',color:'#7c4dbc',icon:'E'},
+      {label:'Advance',value:counts.Advance,sub:'ระดับก้าวหน้า',color:'#12a0b8',icon:'A'},
+      {label:'Basic',value:counts.Basic,sub:'ระดับพื้นฐาน',color:'#e0902e',icon:'B'},
+      {label:'Avg pass rate',value:teamAvgPass+'%',sub:'ค่าเฉลี่ยทั้งทีม',color:'#16a34a',icon:'%'}
+    ];
+    const coverage=L.st.map((s,i)=>{ const q=employees.filter(e=>e.st[i]>=80).length; const pct=Math.round(q/employees.length*100); return { name:s[1], qualified:q, total:employees.length, pctStr:pct+'%', color:this.stColor(pct) }; });
+    const top=[...list].sort((a,b)=>b.avg-a.avg).slice(0,5).map((t,i)=>({ ...t, rank:i+1 }));
+
+    let dr=null,dRadar1=null,dRadar2=null,dG1=[],dG2=[],dSt=[],dLevels=[];
+    if(draft){
+      dr=draft;
+      dRadar1=this.radar(draft.g1,'#2f8fd0','rgba(47,143,208,.18)');
+      dRadar2=this.radar(draft.g2,'#d99a17','rgba(217,154,23,.26)');
+      dG1=draft.g1.map((a,i)=>({ label:String(a.k).replace(/\n/g,' '), v:a.v, on:(e)=>this.updAxis('g1',i,e.target.value) }));
+      dG2=draft.g2.map((a,i)=>({ label:String(a.k).replace(/\n/g,' '), v:a.v, on:(e)=>this.updAxis('g2',i,e.target.value) }));
+      dSt=draft.st.map((p,i)=>({ name:L.st[i][1], pct:p, color:this.stColor(p), on:(e)=>this.updSt(i,e.target.value) }));
+      const lvlBtn=(active,l)=>({display:'flex',flex:1,justifyContent:'center',alignItems:'center',cursor:'pointer',fontFamily:'inherit',fontSize:'14px',fontWeight:700,padding:'11px',borderRadius:'11px',border:'1px solid '+(active?this.lvlColor(l):'#dbe3e9'),background:active?this.lvlColor(l):'#f5f8fa',color:active?'#fff':'#5a6a78'});
+      dLevels=['Basic','Advance','Expert'].map(l=>({ l, style:lvlBtn(draft.level===l,l), on:()=>this.setField('level',l) }));
+    }
+
+    return {
+      screen, isOverview:screen==='overview', isList:screen==='list', isDetail:screen==='detail', isForm:screen==='form', isTasks:screen==='tasks',
+      pageTh:pg[0], pageEn: showEng?pg[1]:'',
+      sOv: screen==='overview'?navActive:navIdle, sEmp: isEmpScreen?navActive:navIdle, sTask: screen==='tasks'?navActive:navIdle,
+      goOverview:()=>this.go('overview'), goList:()=>this.go('list'), goTasks:()=>this.go('tasks'), addNew:()=>this.addNew(),
+      taskEmpId, empOptions, taskGroups, tkAll, tkDone, tkAvg,
+      taskTitle:this.state.taskTitle, taskDue:this.state.taskDue,
+      onSelEmp:(e)=>this.setState({taskEmp:e.target.value}), onTaskTitle:(e)=>this.setState({taskTitle:e.target.value}), onTaskDue:(e)=>this.setState({taskDue:e.target.value}), addTask:()=>this.addTask(),
+      empTaskPct, empTaskDone, empTaskTotal, empTaskStr:empTaskPct+'%',
+      emp:{ name:emp.name, nameEn: showEng?emp.nameEn:emp.name, position:emp.position, level:emp.level, empCode:emp.empCode, join:emp.join, pass:emp.pass, passStr:emp.pass+'%', initials:this.initials(emp.nameEn) },
+      empLevelColor:this.lvlColor(emp.level), editThis:()=>this.editEmp(emp.id),
+      radar1:this.radar(emp.g1,'#2f8fd0','rgba(47,143,208,.18)'),
+      radar2:this.radar(emp.g2,'#d99a17','rgba(217,154,23,.26)'),
+      stations, stats,
+      list,
+      kpis:kpiCards, coverage, top, teamAvgPass,
+      dr, dRadar1, dRadar2, dG1, dG2, dSt, dLevels,
+      save:()=>this.save(), cancel:()=>this.cancel(),
+      setName:(e)=>this.setField('name',e.target.value), setNameEn:(e)=>this.setField('nameEn',e.target.value),
+      setPos:(e)=>this.setField('position',e.target.value), setCode:(e)=>this.setField('empCode',e.target.value)
+    };
+  }
+}
+</script>
+</body>
+</html>
