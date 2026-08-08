@@ -65,6 +65,11 @@ export function renderForm({ draft, meta }) {
           <label class="field-label">ตำแหน่ง<input class="field-input" value="${escapeHtml(draft.position)}" data-field="position"></label>
           <label class="field-label">รหัสพนักงาน<input class="field-input" value="${escapeHtml(draft.empCode)}" data-field="empCode"></label>
         </div>
+        <div class="field-grid" style="margin-top:16px;grid-template-columns:repeat(3,1fr)">
+          <label class="field-label">โควตาลาพักร้อน (วัน/ปี)<input type="number" min="0" class="field-input" value="${draft.leaveQuota.vacation}" data-leave-field="vacation"></label>
+          <label class="field-label">โควตาลาป่วย (วัน/ปี)<input type="number" min="0" class="field-input" value="${draft.leaveQuota.sick}" data-leave-field="sick"></label>
+          <label class="field-label">โควตาลากิจ (วัน/ปี)<input type="number" min="0" class="field-input" value="${draft.leaveQuota.personal}" data-leave-field="personal"></label>
+        </div>
         <div class="form-select-row">
           <div>
             <div class="field-label" style="margin-bottom:8px">ระดับความสามารถ</div>

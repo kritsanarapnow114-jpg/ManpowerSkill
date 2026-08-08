@@ -93,6 +93,7 @@ button { font-family: inherit; }
 
 /* ---------- detail screen ---------- */
 .detail-grid { display: grid; grid-template-columns: 1fr 316px; gap: 20px; align-items: start; }
+.detail-grid > .card { min-width: 0; }
 .detail-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .detail-name { font-size: 26px; font-weight: 800; color: #132530; letter-spacing: .2px; }
 .detail-sub { font-size: 15px; color: #586573; margin-top: 1px; }
@@ -271,5 +272,15 @@ button { font-family: inherit; }
 .attendance-emp { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .attendance-badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-weight: 700; font-size: 12px; }
 .attendance-note { color: #5a6a78; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.leave-balance-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.leave-balance-row { display: grid; grid-template-columns: 76px 1fr 48px; gap: 10px; align-items: center; font-size: 12.5px; }
+.leave-balance-label { color: #5a6a78; font-weight: 600; }
+.leave-balance-track { height: 7px; border-radius: 5px; background: #eef2f5; overflow: hidden; }
+.leave-balance-fill { height: 100%; }
+.leave-balance-num { font-weight: 800; text-align: right; }
+
+.attendance-balance-row { margin-top: 14px; padding-top: 14px; border-top: 1px solid #eef2f5; font-size: 12.5px; color: #8494a1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.attendance-balance-chip b { font-weight: 800; }
 
 .icon { display: inline-flex; }

@@ -1,7 +1,7 @@
 "use strict";
 
 const express = require("express");
-const { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, ATTENDANCE_TYPES } = require("../labels");
+const { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, DEFAULT_LEAVE_QUOTA } = require("../labels");
 
 const router = express.Router();
 
@@ -13,6 +13,7 @@ router.get("/", (req, res) => {
     levels: LEVELS,
     genders: GENDERS,
     attendanceTypes: ATTENDANCE_TYPES,
+    defaultLeaveQuota: DEFAULT_LEAVE_QUOTA,
   });
 });
 

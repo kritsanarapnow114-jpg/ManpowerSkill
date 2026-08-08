@@ -2,10 +2,15 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
-const { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS } = require("../labels");
+const { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
 const { clamp, avgOf, passOf } = require("../compute");
 
 const router = express.Router();
+
+function clamp0(v) {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
 
 router.use(async (req, res, next) => {
   try {
@@ -24,11 +29,22 @@ async function fetchTasks(employeeId) {
   return rows.map((t) => ({ id: t.id, title: t.title, due: t.due, progress: t.progress }));
 }
 
+async function fetchLeaveUsed(employeeId) {
+  const { rows } = await pool.query(
+    "SELECT type, COUNT(*)::int AS n FROM attendance WHERE employee_id = $1 AND type = ANY($2) GROUP BY type",
+    [employeeId, Object.keys(LEAVE_TYPE_KEYS)]
+  );
+  const used = { vacation: 0, sick: 0, personal: 0 };
+  for (const row of rows) used[LEAVE_TYPE_KEYS[row.type]] = row.n;
+  return used;
+}
+
 async function serialize(row) {
   const g1Values = row.g1;
   const g2Values = row.g2;
   const stValues = row.st;
   const tasks = await fetchTasks(row.id);
+  const used = await fetchLeaveUsed(row.id);
 
   return {
     id: row.id,
@@ -46,6 +62,11 @@ async function serialize(row) {
     pass: passOf(g1Values, g2Values),
     avg: avgOf([...g1Values, ...g2Values]),
     tasks,
+    leave: {
+      vacation: { quota: row.leave_quota_vacation, used: used.vacation },
+      sick: { quota: row.leave_quota_sick, used: used.sick },
+      personal: { quota: row.leave_quota_personal, used: used.personal },
+    },
   };
 }
 
@@ -94,6 +115,13 @@ function validateBody(body, { partial } = {}) {
     if (!Array.isArray(body.st) || body.st.length !== STATIONS.length) errors.push(`st must have ${STATIONS.length} values`);
     else out.st = body.st.map(clamp);
   }
+  if (need("leaveQuota")) {
+    const lq = body.leaveQuota || {};
+    const keys = ["vacation", "sick", "personal"];
+    const bad = keys.some((k) => !Number.isFinite(Number(lq[k])) || Number(lq[k]) < 0);
+    if (bad) errors.push("leaveQuota.vacation/sick/personal must be non-negative numbers");
+    else out.leaveQuota = { vacation: clamp0(lq.vacation), sick: clamp0(lq.sick), personal: clamp0(lq.personal) };
+  }
   if (need("stats")) {
     const stats = body.stats || {};
     out.stats = {
@@ -133,11 +161,12 @@ router.post("/", async (req, res, next) => {
 
     const id = "E" + Date.now();
     await pool.query(
-      `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [id, out.name, out.nameEn, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
-        out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect]
+        out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
+        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal]
     );
 
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [id]);
@@ -157,11 +186,13 @@ router.put("/:id", async (req, res, next) => {
 
     await pool.query(
       `UPDATE employees SET name=$1, name_en=$2, gender=$3, position=$4, level=$5, emp_code=$6,
-         join_year=$7, g1=$8, g2=$9, st=$10, stat_today=$11, stat_qc=$12, stat_rework=$13, stat_defect=$14
-       WHERE id=$15`,
+         join_year=$7, g1=$8, g2=$9, st=$10, stat_today=$11, stat_qc=$12, stat_rework=$13, stat_defect=$14,
+         leave_quota_vacation=$15, leave_quota_sick=$16, leave_quota_personal=$17
+       WHERE id=$18`,
       [out.name, out.nameEn, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
-        out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect, req.params.id]
+        out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
+        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, req.params.id]
     );
 
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [req.params.id]);

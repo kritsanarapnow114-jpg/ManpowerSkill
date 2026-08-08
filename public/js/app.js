@@ -63,6 +63,7 @@ function draftFromEmployee(emp) {
     empCode: emp.empCode,
     join: emp.join,
     level: emp.level,
+    leaveQuota: { vacation: emp.leave.vacation.quota, sick: emp.leave.sick.quota, personal: emp.leave.personal.quota },
     g1: emp.g1.map((a) => a.v),
     g2: emp.g2.map((a) => a.v),
     st: emp.st.map((a) => a.v),
@@ -90,6 +91,7 @@ function addNew() {
     empCode: "EMP-",
     join: "2026",
     level: "Basic",
+    leaveQuota: { ...state.meta.defaultLeaveQuota },
     g1: state.meta.g1Axes.map(() => 0),
     g2: state.meta.g2Axes.map(() => 0),
     st: state.meta.stations.map(() => 0),
@@ -103,7 +105,7 @@ async function saveForm() {
   const d = state.draft;
   const payload = {
     name: d.name, nameEn: d.nameEn, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
-    g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
+    leaveQuota: d.leaveQuota, g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
   };
   try {
     const saved = d.isNew ? await api.createEmployee(payload) : await api.updateEmployee(d.id, payload);
@@ -130,6 +132,12 @@ function cancelForm() {
 function setDraftField(field, value) {
   if (!state.draft) return;
   state.draft[field] = value;
+}
+
+function setDraftLeaveQuota(key, value) {
+  if (!state.draft) return;
+  const n = Math.max(0, parseInt(value, 10) || 0);
+  state.draft.leaveQuota[key] = n;
 }
 
 function setDraftLevel(level) {
@@ -229,6 +237,12 @@ async function deleteTask(taskId, empId) {
   render();
 }
 
+async function refreshEmployee(employeeId) {
+  const updated = await api.getEmployee(employeeId);
+  const idx = state.employees.findIndex((e) => e.id === employeeId);
+  if (idx >= 0) state.employees[idx] = updated;
+}
+
 async function addAttendance() {
   const employeeId = state.attendanceForm.employeeId || state.selId || (state.employees[0] && state.employees[0].id);
   const { type, date, note } = state.attendanceForm;
@@ -236,6 +250,7 @@ async function addAttendance() {
   try {
     const created = await api.createAttendance({ employeeId, type, date, note: (note || "").trim() });
     state.attendanceRecords.unshift(created);
+    await refreshEmployee(employeeId);
     state.attendanceForm.note = "";
     state.error = null;
   } catch (err) {
@@ -245,9 +260,11 @@ async function addAttendance() {
 }
 
 async function deleteAttendance(id) {
+  const record = state.attendanceRecords.find((r) => r.id === id);
   try {
     await api.deleteAttendance(id);
     state.attendanceRecords = state.attendanceRecords.filter((r) => r.id !== id);
+    if (record) await refreshEmployee(record.employeeId);
     state.error = null;
   } catch (err) {
     state.error = "ลบรายการไม่สำเร็จ: " + err.message;
@@ -357,6 +374,8 @@ appEl.addEventListener("input", (e) => {
   const t = e.target;
   if (t.dataset && t.dataset.field) {
     setDraftField(t.dataset.field, t.value);
+  } else if (t.dataset && t.dataset.leaveField) {
+    setDraftLeaveQuota(t.dataset.leaveField, t.value);
   } else if (t.dataset && t.dataset.slider) {
     updateDraftSlider(t.dataset.slider, parseInt(t.dataset.index, 10), t.value);
   } else if (t.hasAttribute("data-task-slider")) {
@@ -378,6 +397,7 @@ appEl.addEventListener("change", (e) => {
     commitTaskProgress(t.dataset.taskId, t.dataset.empId, t.value);
   } else if (t.id === "att-emp-select") {
     state.attendanceForm.employeeId = t.value;
+    render();
   } else if (t.id === "att-type-select") {
     state.attendanceForm.type = t.value;
   } else if (t.id === "att-date-input") {

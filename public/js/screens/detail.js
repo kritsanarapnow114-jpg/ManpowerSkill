@@ -2,7 +2,23 @@ import { lvlColor, stColor, initials, escapeHtml, taskPct } from "../format.js";
 import { radarSVG } from "../radar.js";
 import { icons } from "../icons.js";
 
+const LEAVE_LABELS = { vacation: "ลาพักร้อน", sick: "ลาป่วย", personal: "ลากิจ" };
+
 export function renderDetail({ emp }) {
+  const leaveRows = Object.entries(LEAVE_LABELS).map(([key, label]) => {
+    const { quota, used } = emp.leave[key];
+    const remain = quota - used;
+    const color = remain <= 0 ? "#dc2626" : remain <= Math.max(1, Math.round(quota * 0.2)) ? "#e0902e" : "#16a34a";
+    const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 100;
+    return `
+      <div class="leave-balance-row">
+        <div class="leave-balance-label">${escapeHtml(label)}</div>
+        <div class="leave-balance-track"><div class="leave-balance-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="leave-balance-num" style="color:${color}">${used}/${quota}</div>
+      </div>
+    `;
+  }).join("");
+
   const stationsHtml = emp.st.map((s) => `
     <div class="station-chip">
       <div class="station-chip-top">
@@ -82,6 +98,11 @@ export function renderDetail({ emp }) {
             <div class="pass-value"><span class="num">${emp.pass}</span><span class="pct">%</span></div>
             <div class="pass-track"><div class="pass-fill" style="width:${emp.pass}%"></div></div>
             <div class="stat-grid">${statsHtml}</div>
+          </div>
+
+          <div class="card" style="padding:16px 18px">
+            <div class="pass-label">วันลาคงเหลือ · Leave balance</div>
+            <div class="leave-balance-list">${leaveRows}</div>
           </div>
 
           <div class="card" style="padding:16px 18px">

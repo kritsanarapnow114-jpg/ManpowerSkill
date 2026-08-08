@@ -2,6 +2,7 @@ import { avatarBg, initials, attendanceColor, escapeHtml } from "../format.js";
 import { icons } from "../icons.js";
 
 const LEAVE_TYPES = ["ลาป่วย", "ลากิจ", "ลาพักร้อน"];
+const LEAVE_LABELS = { vacation: "ลาพักร้อน", sick: "ลาป่วย", personal: "ลากิจ" };
 
 export function renderAttendance({ employees, records, form }) {
   const total = records.length;
@@ -18,6 +19,16 @@ export function renderAttendance({ employees, records, form }) {
     .join("");
 
   const empById = Object.fromEntries(employees.map((e) => [e.id, e]));
+
+  const selectedEmp = empById[form.employeeId] || employees[0] || null;
+  const balanceHtml = selectedEmp
+    ? Object.entries(LEAVE_LABELS).map(([key, label]) => {
+        const { quota, used } = selectedEmp.leave[key];
+        const remain = quota - used;
+        const color = remain <= 0 ? "#dc2626" : remain <= Math.max(1, Math.round(quota * 0.2)) ? "#e0902e" : "#16a34a";
+        return `<span class="attendance-balance-chip">${escapeHtml(label)} <b style="color:${color}">${remain <= 0 ? 0 : remain}</b>/${quota}</span>`;
+      }).join("")
+    : "";
 
   const rows = records.map((r) => {
     const emp = empById[r.employeeId];
@@ -81,6 +92,7 @@ export function renderAttendance({ employees, records, form }) {
           </label>
           <button class="btn-gradient" data-action="add-attendance">${icons.plus} บันทึก</button>
         </div>
+        ${selectedEmp ? `<div class="attendance-balance-row">คงเหลือของ ${escapeHtml(selectedEmp.nameEn)}: ${balanceHtml}</div>` : ""}
       </div>
 
       <div class="card" style="padding:0;overflow:hidden;margin-top:18px">

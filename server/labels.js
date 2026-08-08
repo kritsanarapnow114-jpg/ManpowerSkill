@@ -37,4 +37,9 @@ const GENDERS = ["ชาย", "หญิง"];
 
 const ATTENDANCE_TYPES = ["ขาด", "ลาป่วย", "ลากิจ", "ลาพักร้อน", "มาสาย"];
 
-module.exports = { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, ATTENDANCE_TYPES };
+// Leave-type attendance entries that count against a quota (ขาด/มาสาย do not).
+const LEAVE_TYPE_KEYS = { "ลาพักร้อน": "vacation", "ลาป่วย": "sick", "ลากิจ": "personal" };
+
+const DEFAULT_LEAVE_QUOTA = { vacation: 10, sick: 30, personal: 6 };
+
+module.exports = { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA };
