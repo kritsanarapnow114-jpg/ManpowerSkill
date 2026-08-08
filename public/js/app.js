@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { icons } from "./icons.js";
-import { clamp, stColor, taskColor, taskBadge, escapeHtml } from "./format.js";
+import { clamp, stColor, taskColor, taskBadge, escapeHtml, normalizeImageLink } from "./format.js";
 import { radarSVG } from "./radar.js";
 import { renderOverview } from "./screens/overview.js";
 import { renderList } from "./screens/list.js";
@@ -519,9 +519,9 @@ appEl.addEventListener("input", (e) => {
   } else if (t.id === "cert-name-input") {
     state.certificateForm.name = t.value;
   } else if (t.id === "cert-link-input") {
-    state.certificateForm.image = t.value.trim();
+    state.certificateForm.image = normalizeImageLink(t.value.trim());
   } else if (t.id === "photo-link-input") {
-    setDraftField("photo", t.value.trim());
+    setDraftField("photo", normalizeImageLink(t.value.trim()));
   }
 });
 
@@ -551,12 +551,16 @@ appEl.addEventListener("change", (e) => {
     state.certificateForm.employeeId = t.value;
   } else if (t.id === "cert-expiry-input") {
     state.certificateForm.expiry = t.value;
+  } else if (t.id === "cert-link-input") {
+    render();
   } else if (t.id === "cert-image-input") {
     const file = t.files && t.files[0];
     if (!file) return;
     readImageFile(file)
       .then((dataUrl) => { state.certificateForm.image = dataUrl; state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
+  } else if (t.id === "photo-link-input") {
+    render();
   } else if (t.id === "photo-file-input") {
     const file = t.files && t.files[0];
     if (!file) return;
