@@ -79,19 +79,28 @@ export function taskPct(tasks) {
   return avgOf(tasks.map((t) => clamp(t.progress)));
 }
 
+function driveFileId(url) {
+  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) return fileMatch[1];
+  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) return openMatch[1];
+  const ucMatch = url.match(/drive\.google\.com\/uc\?.*[?&]id=([a-zA-Z0-9_-]+)/);
+  if (ucMatch) return ucMatch[1];
+  const thumbMatch = url.match(/drive\.google\.com\/thumbnail\?.*[?&]id=([a-zA-Z0-9_-]+)/);
+  if (thumbMatch) return thumbMatch[1];
+  return null;
+}
+
 export function normalizeImageLink(url) {
   if (!url) return url;
-  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) return `https://drive.google.com/uc?export=view&id=${fileMatch[1]}`;
-  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-  if (openMatch) return `https://drive.google.com/uc?export=view&id=${openMatch[1]}`;
-  return url;
+  const id = driveFileId(url);
+  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1000` : url;
 }
 
 export function looksLikeImage(url) {
   if (!url) return false;
   if (url.startsWith("data:image")) return true;
-  if (/drive\.google\.com\/uc\?/.test(url)) return true;
+  if (/drive\.google\.com\/(uc|thumbnail)\?/.test(url)) return true;
   return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url);
 }
 
