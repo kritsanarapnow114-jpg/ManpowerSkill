@@ -1,8 +1,4 @@
-import { lvlColor, initials, passColor, avgOf, escapeHtml } from "../format.js";
-
-function statAbbr(en) {
-  return (en || "").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase();
-}
+import { lvlColor, avatarBg, initials, passColor, avgOf, escapeHtml } from "../format.js";
 
 export function renderList({ employees }) {
   const cards = employees.map((e) => {
@@ -10,50 +6,27 @@ export function renderList({ employees }) {
     const avgG2 = avgOf(e.g2.map((a) => a.v));
     const stnQualified = e.st.filter((s) => s.v >= 80).length;
     const tasksDone = e.tasks.filter((t) => t.progress >= 100).length;
-    const gradId = "shieldGrad-" + e.id;
-    const patId = "shieldPat-" + e.id;
 
     const photo = e.photo
       ? `<img class="player-card-photo" src="${escapeHtml(e.photo)}" alt="">`
       : `<div class="player-card-photo player-card-photo-empty">${escapeHtml(initials(e.nameEn))}</div>`;
 
-    const statCells = e.g1.map((a) => `
-      <div class="player-card-stat-cell">
-        <b>${a.v}</b>
-        <span>${escapeHtml(statAbbr(a.en))}</span>
-      </div>
-    `).join("");
-
     return `
       <div class="player-card-wrap" data-action="open-emp" data-id="${escapeHtml(e.id)}">
         <div class="player-card-inner">
-          <div class="player-card-face player-card-front">
-            <svg class="player-card-shield" viewBox="0 0 240 336" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#f8e2a0"/>
-                  <stop offset="35%" stop-color="#e0b358"/>
-                  <stop offset="70%" stop-color="#c6963f"/>
-                  <stop offset="100%" stop-color="#9c7328"/>
-                </linearGradient>
-                <pattern id="${patId}" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-                  <line x1="0" y1="0" x2="0" y2="16" stroke="rgba(255,255,255,.10)" stroke-width="2"/>
-                </pattern>
-              </defs>
-              <path class="player-card-shield-path" d="M20,34 C20,14 36,4 62,4 L178,4 C204,4 220,14 220,34 L220,248 C220,259 218,268 210,278 C193,299 158,317 120,332 C82,317 47,299 30,278 C22,268 20,259 20,248 Z" fill="url(#${gradId})"/>
-              <path d="M20,34 C20,14 36,4 62,4 L178,4 C204,4 220,14 220,34 L220,248 C220,259 218,268 210,278 C193,299 158,317 120,332 C82,317 47,299 30,278 C22,268 20,259 20,248 Z" fill="url(#${patId})"/>
-            </svg>
-            <div class="player-card-content">
-              <div class="player-card-rating">
-                <div class="player-card-rating-num">${e.pass}</div>
-                <div class="player-card-rating-lvl">${escapeHtml(e.level)}</div>
-              </div>
-              <div class="player-card-crest">NBC</div>
-              <div class="player-card-photo-wrap">${photo}</div>
-              <div class="player-card-name">${escapeHtml(e.nameEn)}</div>
-              <div class="player-card-name-th">${escapeHtml(e.name)}</div>
-              <div class="player-card-divider"></div>
-              <div class="player-card-stats-grid">${statCells}</div>
+          <div class="player-card-face player-card-front" style="background:${avatarBg(e.level)}">
+            <div class="player-card-rating">
+              <div class="player-card-rating-num">${e.pass}</div>
+              <div class="player-card-rating-lvl">${escapeHtml(e.level)}</div>
+            </div>
+            <div class="player-card-photo-wrap">${photo}</div>
+            <div class="player-card-name">${escapeHtml(e.nameEn)}</div>
+            <div class="player-card-name-th">${escapeHtml(e.name)}</div>
+            <div class="player-card-pos">${escapeHtml(e.position)} · ${escapeHtml(e.empCode)}</div>
+            <div class="player-card-mini-stats">
+              <div><span>${avgG1}</span><label>ADV</label></div>
+              <div><span>${avgG2}</span><label>SKL</label></div>
+              <div><span>${stnQualified}/${e.st.length}</span><label>STN</label></div>
             </div>
           </div>
 

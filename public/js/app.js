@@ -468,7 +468,7 @@ function renderShell() {
             <button class="btn-gradient" data-action="add-new">${icons.plus} เพิ่มพนักงาน</button>
           </div>
         </header>
-        <div class="content">
+        <div class="content${screen === "list" ? " content-fls-bg" : ""}">
           ${state.error ? `<div class="card" style="border-color:#f2b8b8;color:#b42318;margin-bottom:16px">${escapeHtml(state.error)}</div>` : ""}
           ${content}
         </div>
