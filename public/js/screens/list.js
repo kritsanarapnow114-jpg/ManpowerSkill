@@ -58,7 +58,7 @@ export function renderList({ employees }) {
   }).join("");
 
   return `
-    <img class="fls-banner" src="/img/fls-bg.png" alt="FLS Group">
+    <div class="fls-banner"></div>
     <div class="player-card-grid">${cards}</div>
   `;
 }
