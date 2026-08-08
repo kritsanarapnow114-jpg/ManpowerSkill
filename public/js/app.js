@@ -65,6 +65,7 @@ function draftFromEmployee(emp) {
     isNew: false,
     name: emp.name,
     nameEn: emp.nameEn,
+    photo: emp.photo || "",
     gender: emp.gender,
     position: emp.position,
     empCode: emp.empCode,
@@ -93,6 +94,7 @@ function addNew() {
     isNew: true,
     name: "พนักงานใหม่",
     nameEn: "NEW EMPLOYEE",
+    photo: "",
     gender: state.meta.genders[0],
     position: state.meta.positions[0] || "",
     empCode: "EMP-",
@@ -111,7 +113,7 @@ function addNew() {
 async function saveForm() {
   const d = state.draft;
   const payload = {
-    name: d.name, nameEn: d.nameEn, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
+    name: d.name, nameEn: d.nameEn, photo: d.photo, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
     leaveQuota: d.leaveQuota, g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
   };
   try {
@@ -518,6 +520,8 @@ appEl.addEventListener("input", (e) => {
     state.certificateForm.name = t.value;
   } else if (t.id === "cert-link-input") {
     state.certificateForm.image = t.value.trim();
+  } else if (t.id === "photo-link-input") {
+    setDraftField("photo", t.value.trim());
   }
 });
 
@@ -552,6 +556,12 @@ appEl.addEventListener("change", (e) => {
     if (!file) return;
     readImageFile(file)
       .then((dataUrl) => { state.certificateForm.image = dataUrl; state.error = null; render(); })
+      .catch((err) => { state.error = err.message; render(); });
+  } else if (t.id === "photo-file-input") {
+    const file = t.files && t.files[0];
+    if (!file) return;
+    readImageFile(file)
+      .then((dataUrl) => { setDraftField("photo", dataUrl); state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
   }
 });

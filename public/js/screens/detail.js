@@ -91,7 +91,9 @@ export function renderDetail({ emp, certificates = [] }) {
 
         <div style="display:flex;flex-direction:column;gap:16px">
           <div class="card" style="padding:0;overflow:hidden">
-            <div class="avatar-hero"><div class="avatar-circle-lg">${escapeHtml(initials(emp.nameEn))}</div></div>
+            <div class="avatar-hero">${emp.photo
+              ? `<img class="avatar-circle-lg avatar-circle-photo" src="${escapeHtml(emp.photo)}" alt="">`
+              : `<div class="avatar-circle-lg">${escapeHtml(initials(emp.nameEn))}</div>`}</div>
             <div class="hero-card-body">
               <div class="muted-label">รหัสพนักงาน · เข้าร่วม</div>
               <div class="hero-meta">${escapeHtml(emp.empCode)} · ${escapeHtml(emp.join)}</div>

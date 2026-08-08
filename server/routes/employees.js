@@ -7,6 +7,8 @@ const { clamp, avgOf, passOf } = require("../compute");
 
 const router = express.Router();
 
+const MAX_IMAGE_LENGTH = 2_000_000; // ~1.5MB decoded, generous for a headshot
+
 function clamp0(v) {
   const n = Math.round(Number(v));
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -56,6 +58,7 @@ async function serialize(row) {
     id: row.id,
     name: row.name,
     nameEn: row.name_en,
+    photo: row.photo,
     gender: row.gender,
     position: row.position,
     level: row.level,
@@ -89,6 +92,13 @@ function validateBody(body, { partial } = {}) {
   if (need("nameEn")) {
     if (typeof body.nameEn !== "string" || !body.nameEn.trim()) errors.push("nameEn is required");
     else out.nameEn = body.nameEn.trim();
+  }
+  if (need("photo")) {
+    if (body.photo && (typeof body.photo !== "string" || body.photo.length > MAX_IMAGE_LENGTH)) {
+      errors.push("photo is too large");
+    } else {
+      out.photo = typeof body.photo === "string" ? body.photo : "";
+    }
   }
   if (need("gender")) {
     if (body.gender !== "" && !GENDERS.includes(body.gender)) errors.push(`gender must be one of ${GENDERS.join(", ")}`);
@@ -171,9 +181,9 @@ router.post("/", async (req, res, next) => {
 
     const id = "E" + Date.now();
     await pool.query(
-      `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-      [id, out.name, out.nameEn, out.gender, out.position, out.level, out.empCode, out.join,
+      `INSERT INTO employees (id, name, name_en, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      [id, out.name, out.nameEn, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
         out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal]
@@ -195,11 +205,11 @@ router.put("/:id", async (req, res, next) => {
     if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
     await pool.query(
-      `UPDATE employees SET name=$1, name_en=$2, gender=$3, position=$4, level=$5, emp_code=$6,
-         join_year=$7, g1=$8, g2=$9, st=$10, stat_today=$11, stat_qc=$12, stat_rework=$13, stat_defect=$14,
-         leave_quota_vacation=$15, leave_quota_sick=$16, leave_quota_personal=$17
-       WHERE id=$18`,
-      [out.name, out.nameEn, out.gender, out.position, out.level, out.empCode, out.join,
+      `UPDATE employees SET name=$1, name_en=$2, photo=$3, gender=$4, position=$5, level=$6, emp_code=$7,
+         join_year=$8, g1=$9, g2=$10, st=$11, stat_today=$12, stat_qc=$13, stat_rework=$14, stat_defect=$15,
+         leave_quota_vacation=$16, leave_quota_sick=$17, leave_quota_personal=$18
+       WHERE id=$19`,
+      [out.name, out.nameEn, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
         out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, req.params.id]

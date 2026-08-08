@@ -66,7 +66,16 @@ export function renderForm({ draft, meta }) {
       </div>
 
       <div class="card" style="padding:20px 22px">
-        <div class="field-grid">
+        <div class="photo-field-row">
+          ${draft.photo
+            ? `<img class="photo-field-preview" src="${escapeHtml(draft.photo)}" alt="">`
+            : `<div class="photo-field-preview photo-field-preview-empty">${escapeHtml((draft.nameEn || "?").trim()[0] || "?")}</div>`}
+          <div class="photo-field-inputs">
+            <label class="field-label">รูปพนักงาน (ไฟล์)<input type="file" accept="image/*" class="field-input" id="photo-file-input"></label>
+            <label class="field-label">หรือวางลิงก์รูป (URL)<input class="field-input" id="photo-link-input" value="${escapeHtml(draft.photo && draft.photo.startsWith("http") ? draft.photo : "")}" placeholder="https://..."></label>
+          </div>
+        </div>
+        <div class="field-grid" style="margin-top:16px">
           <label class="field-label">ชื่อ (EN)<input class="field-input" value="${escapeHtml(draft.nameEn)}" data-field="nameEn"></label>
           <label class="field-label">ชื่อ (ไทย)<input class="field-input" value="${escapeHtml(draft.name)}" data-field="name"></label>
           <label class="field-label">ตำแหน่ง
