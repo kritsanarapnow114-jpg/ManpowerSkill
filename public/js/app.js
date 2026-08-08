@@ -7,8 +7,13 @@ import { renderList } from "./screens/list.js";
 import { renderDetail } from "./screens/detail.js";
 import { renderForm } from "./screens/form.js";
 import { renderTasks } from "./screens/tasks.js";
+import { renderAttendance } from "./screens/attendance.js";
 
 const appEl = document.getElementById("app");
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const state = {
   meta: null,
@@ -17,6 +22,8 @@ const state = {
   selId: null,
   draft: null,
   taskForm: { employeeId: null, title: "", due: "" },
+  attendanceRecords: [],
+  attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
   loading: true,
   error: null,
 };
@@ -27,6 +34,7 @@ const PAGE_MAP = {
   detail: ["ข้อมูลความสามารถพนักงาน", "Employee capability profile"],
   form: ["แก้ไขคะแนนความสามารถ", "Edit capability scores"],
   tasks: ["งานที่มอบหมาย", "Assigned tasks & progress"],
+  attendance: ["บันทึกขาดลามาสาย", "Attendance & leave records"],
 };
 
 function findEmployee(id) {
@@ -221,6 +229,32 @@ async function deleteTask(taskId, empId) {
   render();
 }
 
+async function addAttendance() {
+  const employeeId = state.attendanceForm.employeeId || state.selId || (state.employees[0] && state.employees[0].id);
+  const { type, date, note } = state.attendanceForm;
+  if (!employeeId || !type || !date) return;
+  try {
+    const created = await api.createAttendance({ employeeId, type, date, note: (note || "").trim() });
+    state.attendanceRecords.unshift(created);
+    state.attendanceForm.note = "";
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteAttendance(id) {
+  try {
+    await api.deleteAttendance(id);
+    state.attendanceRecords = state.attendanceRecords.filter((r) => r.id !== id);
+    state.error = null;
+  } catch (err) {
+    state.error = "ลบรายการไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
 function renderShell() {
   const { screen } = state;
   const isEmpScreen = screen === "list" || screen === "detail" || screen === "form";
@@ -235,6 +269,8 @@ function renderShell() {
     content = renderList({ employees: state.employees });
   } else if (screen === "tasks") {
     content = renderTasks({ employees: state.employees, taskForm: state.taskForm, showEnglish: true });
+  } else if (screen === "attendance") {
+    content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
   } else if (screen === "form" && state.draft) {
     content = renderForm({ draft: state.draft, meta: state.meta });
   } else {
@@ -260,6 +296,9 @@ function renderShell() {
         </button>
         <button class="nav-btn${screen === "tasks" ? " active" : ""}" data-nav="tasks">
           ${icons.tasks}<span>งานที่มอบหมาย<small>Assigned tasks</small></span>
+        </button>
+        <button class="nav-btn${screen === "attendance" ? " active" : ""}" data-nav="attendance">
+          ${icons.attendance}<span>ขาดลามาสาย<small>Attendance</small></span>
         </button>
         <div class="sidebar-footer">
           <div class="line1">สายการประกอบ · Line A</div>
@@ -309,6 +348,8 @@ appEl.addEventListener("click", (e) => {
   else if (action === "set-gender") setDraftGender(actionEl.dataset.gender);
   else if (action === "add-task") addTask();
   else if (action === "delete-task") deleteTask(actionEl.dataset.taskId, actionEl.dataset.empId);
+  else if (action === "add-attendance") addAttendance();
+  else if (action === "delete-attendance") deleteAttendance(actionEl.dataset.id);
   else if (action === "add-new") addNew();
 });
 
@@ -324,6 +365,8 @@ appEl.addEventListener("input", (e) => {
     state.taskForm.title = t.value;
   } else if (t.id === "task-due-input") {
     state.taskForm.due = t.value;
+  } else if (t.id === "att-note-input") {
+    state.attendanceForm.note = t.value;
   }
 });
 
@@ -333,16 +376,24 @@ appEl.addEventListener("change", (e) => {
     state.taskForm.employeeId = t.value;
   } else if (t.hasAttribute("data-task-slider")) {
     commitTaskProgress(t.dataset.taskId, t.dataset.empId, t.value);
+  } else if (t.id === "att-emp-select") {
+    state.attendanceForm.employeeId = t.value;
+  } else if (t.id === "att-type-select") {
+    state.attendanceForm.type = t.value;
+  } else if (t.id === "att-date-input") {
+    state.attendanceForm.date = t.value;
   }
 });
 
 async function init() {
   try {
-    const [meta, employees] = await Promise.all([api.getMeta(), api.listEmployees()]);
+    const [meta, employees, attendanceRecords] = await Promise.all([api.getMeta(), api.listEmployees(), api.listAttendance()]);
     state.meta = meta;
     state.employees = employees;
+    state.attendanceRecords = attendanceRecords;
     state.selId = employees[0] ? employees[0].id : null;
     state.taskForm.employeeId = state.selId;
+    state.attendanceForm.employeeId = state.selId;
     state.loading = false;
   } catch (err) {
     state.loading = false;

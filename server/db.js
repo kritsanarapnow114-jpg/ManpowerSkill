@@ -48,6 +48,15 @@ const SCHEMA_SQL = `
     progress INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+
+  CREATE TABLE IF NOT EXISTS attendance (
+    id TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    date TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
 `;
 
 const SEED_EMPLOYEES = [
@@ -97,6 +106,16 @@ const SEED_TASKS = {
   E8: [{ id: "T8a", title: "Certify สถานี Assembly A", due: "22 ส.ค.", progress: 75 }],
 };
 
+const SEED_ATTENDANCE = {
+  E3: [{ id: "A3a", type: "มาสาย", date: "2026-08-03", note: "รถติด" }],
+  E5: [{ id: "A5a", type: "ลาป่วย", date: "2026-08-04", note: "ไข้หวัด" }],
+  E6: [{ id: "A6a", type: "ลาพักร้อน", date: "2026-08-06", note: "" }],
+  E7: [
+    { id: "A7a", type: "ขาด", date: "2026-08-01", note: "ไม่แจ้งล่วงหน้า" },
+    { id: "A7b", type: "ลากิจ", date: "2026-08-05", note: "ธุระครอบครัว" },
+  ],
+};
+
 let readyPromise = null;
 
 async function ensureSchema() {
@@ -122,6 +141,12 @@ async function ensureSchema() {
           await client.query(
             "INSERT INTO tasks (id, employee_id, title, due, progress) VALUES ($1,$2,$3,$4,$5)",
             [t.id, id, t.title, t.due, t.progress]
+          );
+        }
+        for (const a of SEED_ATTENDANCE[id] || []) {
+          await client.query(
+            "INSERT INTO attendance (id, employee_id, type, date, note) VALUES ($1,$2,$3,$4,$5)",
+            [a.id, id, a.type, a.date, a.note]
           );
         }
       }

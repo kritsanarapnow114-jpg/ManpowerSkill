@@ -35,4 +35,6 @@ const LEVELS = ["Basic", "Advance", "Expert"];
 
 const GENDERS = ["ชาย", "หญิง"];
 
-module.exports = { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS };
+const ATTENDANCE_TYPES = ["ขาด", "ลาป่วย", "ลากิจ", "ลาพักร้อน", "มาสาย"];
+
+module.exports = { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, ATTENDANCE_TYPES };

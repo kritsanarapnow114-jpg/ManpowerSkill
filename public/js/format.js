@@ -48,6 +48,18 @@ export function initials(nameEn) {
     .toUpperCase();
 }
 
+const ATTENDANCE_COLORS = {
+  "ขาด": "#dc2626",
+  "ลาป่วย": "#e0902e",
+  "ลากิจ": "#7c4dbc",
+  "ลาพักร้อน": "#16a34a",
+  "มาสาย": "#d99a17",
+};
+
+export function attendanceColor(type) {
+  return ATTENDANCE_COLORS[type] || "#64748b";
+}
+
 export function passColor(pass) {
   return pass >= 95 ? "#16a34a" : pass >= 85 ? "#0c7f93" : "#e0902e";
 }

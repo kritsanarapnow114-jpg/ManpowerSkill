@@ -8,6 +8,7 @@ app.use(express.json());
 app.use("/api/meta", require("./routes/meta"));
 app.use("/api/employees", require("./routes/employees"));
 app.use("/api/tasks", require("./routes/tasks"));
+app.use("/api/attendance", require("./routes/attendance"));
 
 app.use((err, req, res, next) => {
   console.error(err);

@@ -27,4 +27,7 @@ export const api = {
   createTask: (data) => request("/api/tasks", json("POST", data)),
   updateTaskProgress: (id, progress) => request(`/api/tasks/${id}`, json("PATCH", { progress })),
   deleteTask: (id) => request(`/api/tasks/${id}`, { method: "DELETE" }),
+  listAttendance: () => request("/api/attendance"),
+  createAttendance: (data) => request("/api/attendance", json("POST", data)),
+  deleteAttendance: (id) => request(`/api/attendance/${id}`, { method: "DELETE" }),
 };
