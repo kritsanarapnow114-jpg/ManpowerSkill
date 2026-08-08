@@ -69,9 +69,19 @@ export function renderForm({ draft, meta }) {
         <div class="field-grid">
           <label class="field-label">ชื่อ (EN)<input class="field-input" value="${escapeHtml(draft.nameEn)}" data-field="nameEn"></label>
           <label class="field-label">ชื่อ (ไทย)<input class="field-input" value="${escapeHtml(draft.name)}" data-field="name"></label>
-          <label class="field-label">ตำแหน่ง<input class="field-input" value="${escapeHtml(draft.position)}" data-field="position"></label>
+          <label class="field-label">ตำแหน่ง
+            <select class="field-input" id="position-select">
+              ${meta.positions.map((p) => `<option value="${escapeHtml(p)}" ${draft.position === p ? "selected" : ""}>${escapeHtml(p)}</option>`).join("")}
+              <option value="__other__" ${!meta.positions.includes(draft.position) ? "selected" : ""}>อื่นๆ (พิมพ์เอง)</option>
+            </select>
+          </label>
           <label class="field-label">รหัสพนักงาน<input class="field-input" value="${escapeHtml(draft.empCode)}" data-field="empCode"></label>
         </div>
+        ${!meta.positions.includes(draft.position) ? `
+          <label class="field-label" style="margin-top:16px">ระบุตำแหน่ง
+            <input class="field-input" value="${escapeHtml(draft.position)}" data-field="position" placeholder="พิมพ์ชื่อตำแหน่ง">
+          </label>
+        ` : ""}
         <div class="field-grid" style="margin-top:16px;grid-template-columns:repeat(3,1fr)">
           <label class="field-label">โควตาลาพักร้อน (วัน/ปี)<input type="number" min="0" class="field-input" value="${draft.leaveQuota.vacation}" data-leave-field="vacation"></label>
           <label class="field-label">โควตาลาป่วย (วัน/ปี)<input type="number" min="0" class="field-input" value="${draft.leaveQuota.sick}" data-leave-field="sick"></label>

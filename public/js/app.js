@@ -94,7 +94,7 @@ function addNew() {
     name: "พนักงานใหม่",
     nameEn: "NEW EMPLOYEE",
     gender: state.meta.genders[0],
-    position: "Assembly Operator",
+    position: state.meta.positions[0] || "",
     empCode: "EMP-",
     join: "2026",
     level: "Basic",
@@ -540,6 +540,9 @@ appEl.addEventListener("change", (e) => {
     readImageFile(file)
       .then((dataUrl) => { state.stationForm.image = dataUrl; state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
+  } else if (t.id === "position-select") {
+    setDraftField("position", t.value === "__other__" ? "" : t.value);
+    render();
   } else if (t.id === "cert-emp-select") {
     state.certificateForm.employeeId = t.value;
   } else if (t.id === "cert-expiry-input") {

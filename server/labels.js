@@ -31,6 +31,8 @@ const STATIONS = [
   { code: "ST-10", name: "Final · ตรวจปลายสาย" },
 ];
 
+const POSITIONS = ["Material Handler", "Material Handler Shift lead"];
+
 const LEVELS = ["Basic", "Advance", "Expert"];
 
 const GENDERS = ["ชาย", "หญิง"];
@@ -42,4 +44,4 @@ const LEAVE_TYPE_KEYS = { "ลาพักร้อน": "vacation", "ลาป�
 
 const DEFAULT_LEAVE_QUOTA = { vacation: 10, sick: 30, personal: 6 };
 
-module.exports = { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA };
+module.exports = { G1_AXES, G2_AXES, STATIONS, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA };
