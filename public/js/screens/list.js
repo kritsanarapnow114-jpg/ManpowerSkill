@@ -1,4 +1,4 @@
-import { lvlColor, avatarBg, initials, passColor, avgOf, escapeHtml } from "../format.js";
+import { lvlColor, initials, passColor, avgOf, escapeHtml } from "../format.js";
 
 export function renderList({ employees }) {
   const cards = employees.map((e) => {
@@ -14,10 +14,10 @@ export function renderList({ employees }) {
     return `
       <div class="player-card-wrap" data-action="open-emp" data-id="${escapeHtml(e.id)}">
         <div class="player-card-inner">
-          <div class="player-card-face player-card-front" style="background:${avatarBg(e.level)}">
+          <div class="player-card-face player-card-front">
             <div class="player-card-rating">
               <div class="player-card-rating-num">${e.pass}</div>
-              <div class="player-card-rating-lvl">${escapeHtml(e.level)}</div>
+              <div class="player-card-rating-lvl" style="color:${lvlColor(e.level)}">${escapeHtml(e.level)}</div>
             </div>
             <div class="player-card-photo-wrap">${photo}</div>
             <div class="player-card-name">${escapeHtml(e.nameEn)}</div>
@@ -57,8 +57,5 @@ export function renderList({ employees }) {
     `;
   }).join("");
 
-  return `
-    <div class="fls-banner"></div>
-    <div class="player-card-grid">${cards}</div>
-  `;
+  return `<div class="player-card-grid">${cards}</div>`;
 }
