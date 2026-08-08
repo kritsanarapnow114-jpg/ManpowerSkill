@@ -79,6 +79,16 @@ export function taskPct(tasks) {
   return avgOf(tasks.map((t) => clamp(t.progress)));
 }
 
+export function looksLikeImage(url) {
+  if (!url) return false;
+  if (url.startsWith("data:image")) return true;
+  return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url);
+}
+
+export function isSafeLink(url) {
+  return typeof url === "string" && /^https?:\/\//i.test(url);
+}
+
 export function certStatus(expiry) {
   if (!expiry) return { kind: "none", label: "ไม่มีวันหมดอายุ", color: "#8494a1" };
   const days = Math.floor((new Date(expiry + "T00:00:00") - new Date(new Date().toDateString())) / 86400000);

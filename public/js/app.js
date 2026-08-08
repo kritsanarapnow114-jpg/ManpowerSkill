@@ -516,6 +516,8 @@ appEl.addEventListener("input", (e) => {
     state.stationForm.name = t.value;
   } else if (t.id === "cert-name-input") {
     state.certificateForm.name = t.value;
+  } else if (t.id === "cert-link-input") {
+    state.certificateForm.image = t.value.trim();
   }
 });
 

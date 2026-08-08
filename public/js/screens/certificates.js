@@ -1,4 +1,4 @@
-import { avatarBg, initials, certStatus, escapeHtml } from "../format.js";
+import { avatarBg, initials, certStatus, escapeHtml, looksLikeImage, isSafeLink } from "../format.js";
 import { icons } from "../icons.js";
 
 export function renderCertificates({ employees, certificates, form }) {
@@ -15,9 +15,15 @@ export function renderCertificates({ employees, certificates, form }) {
   const cards = certificates.map((c) => {
     const emp = empById[c.employeeId];
     const status = certStatus(c.expiry);
+    const thumb = looksLikeImage(c.image)
+      ? `<img class="cert-card-img" src="${escapeHtml(c.image)}" alt="">`
+      : `<div class="cert-card-img cert-card-img-empty">${icons.certificate}</div>`;
+    const linkBtn = c.image && !looksLikeImage(c.image) && isSafeLink(c.image)
+      ? `<a class="cert-card-link" href="${escapeHtml(c.image)}" target="_blank" rel="noopener noreferrer">${icons.image} ดูใบเซอร์ →</a>`
+      : "";
     return `
       <div class="cert-card">
-        ${c.image ? `<img class="cert-card-img" src="${escapeHtml(c.image)}" alt="">` : `<div class="cert-card-img cert-card-img-empty">${icons.certificate}</div>`}
+        ${thumb}
         <div class="cert-card-body">
           <div class="cert-card-name">${escapeHtml(c.name)}</div>
           <div class="cert-card-emp">
@@ -25,6 +31,7 @@ export function renderCertificates({ employees, certificates, form }) {
             <span>${escapeHtml(emp ? emp.nameEn : c.employeeId)}</span>
           </div>
           <div class="cert-card-expiry" style="color:${status.color}">${escapeHtml(status.label)}${c.expiry ? ` · ${escapeHtml(c.expiry)}` : ""}</div>
+          ${linkBtn}
         </div>
         <button class="btn-icon" title="ลบใบเซอร์" data-action="delete-certificate" data-id="${escapeHtml(c.id)}">${icons.trash}</button>
       </div>
@@ -66,9 +73,16 @@ export function renderCertificates({ employees, certificates, form }) {
           <label class="assign-field due">รูป/ไฟล์ใบเซอร์
             <input type="file" accept="image/*" class="field-input" id="cert-image-input">
           </label>
+          <label class="assign-field title">หรือวางลิงก์เอกสาร (URL)
+            <input class="field-input" id="cert-link-input" value="${escapeHtml(isSafeLink(form.image) ? form.image : "")}" placeholder="เช่น https://drive.google.com/...">
+          </label>
           <button class="btn-gradient" data-action="add-certificate">${icons.plus} เพิ่มใบเซอร์</button>
         </div>
-        ${form.image ? `<div class="station-manage-preview"><img src="${escapeHtml(form.image)}" alt=""><span>ตัวอย่างรูปที่เลือก</span></div>` : ""}
+        ${form.image && looksLikeImage(form.image)
+          ? `<div class="station-manage-preview"><img src="${escapeHtml(form.image)}" alt=""><span>ตัวอย่างรูปที่เลือก</span></div>`
+          : form.image
+          ? `<div class="station-manage-preview"><span>ลิงก์ที่ใส่: ${escapeHtml(form.image)}</span></div>`
+          : ""}
       </div>
 
       <div class="cert-grid">${cards || `<div class="task-empty">ยังไม่มีใบเซอร์</div>`}</div>
