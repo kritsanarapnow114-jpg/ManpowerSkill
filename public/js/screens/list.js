@@ -57,5 +57,8 @@ export function renderList({ employees }) {
     `;
   }).join("");
 
-  return `<div class="player-card-grid">${cards}</div>`;
+  return `
+    <img class="fls-banner" src="/img/fls-bg.png" alt="FLS Group">
+    <div class="player-card-grid">${cards}</div>
+  `;
 }
