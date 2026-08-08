@@ -78,3 +78,11 @@ export function taskPct(tasks) {
   if (!tasks || !tasks.length) return 0;
   return avgOf(tasks.map((t) => clamp(t.progress)));
 }
+
+export function certStatus(expiry) {
+  if (!expiry) return { kind: "none", label: "ไม่มีวันหมดอายุ", color: "#8494a1" };
+  const days = Math.floor((new Date(expiry + "T00:00:00") - new Date(new Date().toDateString())) / 86400000);
+  if (days < 0) return { kind: "expired", label: "หมดอายุแล้ว", color: "#dc2626" };
+  if (days <= 30) return { kind: "soon", label: `ใกล้หมดอายุ (${days} วัน)`, color: "#e0902e" };
+  return { kind: "ok", label: "ยังไม่หมดอายุ", color: "#16a34a" };
+}

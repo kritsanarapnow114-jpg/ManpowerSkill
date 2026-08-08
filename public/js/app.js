@@ -9,6 +9,7 @@ import { renderForm } from "./screens/form.js";
 import { renderTasks } from "./screens/tasks.js";
 import { renderAttendance } from "./screens/attendance.js";
 import { renderStations } from "./screens/stations.js";
+import { renderCertificates } from "./screens/certificates.js";
 
 const appEl = document.getElementById("app");
 
@@ -26,6 +27,8 @@ const state = {
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
   stationForm: { editingId: null, code: "", name: "", image: "" },
+  certificates: [],
+  certificateForm: { employeeId: null, name: "", expiry: "", image: "" },
   loading: true,
   error: null,
 };
@@ -38,6 +41,7 @@ const PAGE_MAP = {
   tasks: ["งานที่มอบหมาย", "Assigned tasks & progress"],
   attendance: ["บันทึกขาดลามาสาย", "Attendance & leave records"],
   stations: ["จัดการสถานี / เครื่องจักร", "Manage stations & machine photos"],
+  certificates: ["ใบเซอร์พนักงาน", "Employee certificates"],
 };
 
 function findEmployee(id) {
@@ -336,6 +340,39 @@ async function deleteStation(id) {
   render();
 }
 
+async function addCertificate() {
+  const employeeId = state.certificateForm.employeeId || state.selId || (state.employees[0] && state.employees[0].id);
+  const name = (state.certificateForm.name || "").trim();
+  if (!employeeId || !name) return;
+  try {
+    const created = await api.createCertificate({
+      employeeId,
+      name,
+      expiry: state.certificateForm.expiry || "",
+      image: state.certificateForm.image || "",
+    });
+    state.certificates.unshift(created);
+    state.certificateForm.name = "";
+    state.certificateForm.expiry = "";
+    state.certificateForm.image = "";
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกใบเซอร์ไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteCertificate(id) {
+  try {
+    await api.deleteCertificate(id);
+    state.certificates = state.certificates.filter((c) => c.id !== id);
+    state.error = null;
+  } catch (err) {
+    state.error = "ลบใบเซอร์ไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
 function renderShell() {
   const { screen } = state;
   const isEmpScreen = screen === "list" || screen === "detail" || screen === "form";
@@ -354,11 +391,17 @@ function renderShell() {
     content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
   } else if (screen === "stations") {
     content = renderStations({ stations: state.meta.stations, form: state.stationForm });
+  } else if (screen === "certificates") {
+    content = renderCertificates({ employees: state.employees, certificates: state.certificates, form: state.certificateForm });
   } else if (screen === "form" && state.draft) {
     content = renderForm({ draft: state.draft, meta: state.meta });
   } else {
     const emp = findEmployee(state.selId);
-    if (emp) { state.selId = emp.id; content = renderDetail({ emp }); }
+    if (emp) {
+      state.selId = emp.id;
+      const certs = state.certificates.filter((c) => c.employeeId === emp.id);
+      content = renderDetail({ emp, certificates: certs });
+    }
   }
 
   appEl.innerHTML = `
@@ -385,6 +428,9 @@ function renderShell() {
         </button>
         <button class="nav-btn${screen === "stations" ? " active" : ""}" data-nav="stations">
           ${icons.machine}<span>จัดการสถานี<small>Stations</small></span>
+        </button>
+        <button class="nav-btn${screen === "certificates" ? " active" : ""}" data-nav="certificates">
+          ${icons.certificate}<span>ใบเซอร์พนักงาน<small>Certificates</small></span>
         </button>
         <div class="sidebar-footer">
           <div class="line1">สายการประกอบ · Line A</div>
@@ -428,6 +474,7 @@ appEl.addEventListener("click", (e) => {
   else if (action === "edit-this") editEmp(state.selId);
   else if (action === "back-to-list") go("list");
   else if (action === "go-tasks") go("tasks");
+  else if (action === "go-certificates") go("certificates");
   else if (action === "save-form") saveForm();
   else if (action === "cancel-form") cancelForm();
   else if (action === "set-level") setDraftLevel(actionEl.dataset.level);
@@ -440,6 +487,8 @@ appEl.addEventListener("click", (e) => {
   else if (action === "cancel-station-edit") cancelStationEdit();
   else if (action === "save-station") saveStation();
   else if (action === "delete-station") deleteStation(actionEl.dataset.id);
+  else if (action === "add-certificate") addCertificate();
+  else if (action === "delete-certificate") deleteCertificate(actionEl.dataset.id);
   else if (action === "add-new") addNew();
 });
 
@@ -465,6 +514,8 @@ appEl.addEventListener("input", (e) => {
     state.stationForm.code = t.value;
   } else if (t.id === "stn-name-input") {
     state.stationForm.name = t.value;
+  } else if (t.id === "cert-name-input") {
+    state.certificateForm.name = t.value;
   }
 });
 
@@ -487,18 +538,32 @@ appEl.addEventListener("change", (e) => {
     readImageFile(file)
       .then((dataUrl) => { state.stationForm.image = dataUrl; state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
+  } else if (t.id === "cert-emp-select") {
+    state.certificateForm.employeeId = t.value;
+  } else if (t.id === "cert-expiry-input") {
+    state.certificateForm.expiry = t.value;
+  } else if (t.id === "cert-image-input") {
+    const file = t.files && t.files[0];
+    if (!file) return;
+    readImageFile(file)
+      .then((dataUrl) => { state.certificateForm.image = dataUrl; state.error = null; render(); })
+      .catch((err) => { state.error = err.message; render(); });
   }
 });
 
 async function init() {
   try {
-    const [meta, employees, attendanceRecords] = await Promise.all([api.getMeta(), api.listEmployees(), api.listAttendance()]);
+    const [meta, employees, attendanceRecords, certificates] = await Promise.all([
+      api.getMeta(), api.listEmployees(), api.listAttendance(), api.listCertificates(),
+    ]);
     state.meta = meta;
     state.employees = employees;
     state.attendanceRecords = attendanceRecords;
+    state.certificates = certificates;
     state.selId = employees[0] ? employees[0].id : null;
     state.taskForm.employeeId = state.selId;
     state.attendanceForm.employeeId = state.selId;
+    state.certificateForm.employeeId = state.selId;
     state.loading = false;
   } catch (err) {
     state.loading = false;

@@ -1,10 +1,11 @@
-import { lvlColor, stColor, initials, escapeHtml, taskPct } from "../format.js";
+import { lvlColor, stColor, initials, escapeHtml, taskPct, certStatus } from "../format.js";
 import { radarSVG } from "../radar.js";
 import { icons } from "../icons.js";
 
 const LEAVE_LABELS = { vacation: "ลาพักร้อน", sick: "ลาป่วย", personal: "ลากิจ" };
+const STATUS_RANK = { expired: 0, soon: 1, ok: 2, none: 3 };
 
-export function renderDetail({ emp }) {
+export function renderDetail({ emp, certificates = [] }) {
   const leaveRows = Object.entries(LEAVE_LABELS).map(([key, label]) => {
     const { quota, used } = emp.leave[key];
     const remain = quota - used;
@@ -50,6 +51,9 @@ export function renderDetail({ emp }) {
   const empTaskTotal = emp.tasks.length;
   const empTaskDone = emp.tasks.filter((t) => t.progress >= 100).length;
   const empTaskPctVal = taskPct(emp.tasks);
+
+  const certStatuses = certificates.map((c) => certStatus(c.expiry));
+  const worstCert = certStatuses.slice().sort((a, b) => STATUS_RANK[a.kind] - STATUS_RANK[b.kind])[0];
 
   return `
     <div>
@@ -116,6 +120,17 @@ export function renderDetail({ emp }) {
               <span class="count">${empTaskDone}/${empTaskTotal} งานเสร็จ</span>
             </div>
             <div class="task-summary-track"><div class="task-summary-fill" style="width:${empTaskPctVal}%"></div></div>
+          </div>
+
+          <div class="card" style="padding:16px 18px">
+            <div class="task-summary-head">
+              <div class="pass-label">ใบเซอร์ · Certificates</div>
+              <button class="task-summary-link" data-action="go-certificates">จัดการ →</button>
+            </div>
+            <div class="task-summary-value">
+              <span class="num">${certificates.length}</span>
+              ${certificates.length ? `<span class="count" style="color:${worstCert.color}">${escapeHtml(worstCert.label)}</span>` : `<span class="count">ยังไม่มีใบเซอร์</span>`}
+            </div>
           </div>
         </div>
       </div>

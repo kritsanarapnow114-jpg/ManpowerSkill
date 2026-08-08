@@ -34,4 +34,7 @@ export const api = {
   createStation: (data) => request("/api/stations", json("POST", data)),
   updateStation: (id, data) => request(`/api/stations/${id}`, json("PUT", data)),
   deleteStation: (id) => request(`/api/stations/${id}`, { method: "DELETE" }),
+  listCertificates: () => request("/api/certificates"),
+  createCertificate: (data) => request("/api/certificates", json("POST", data)),
+  deleteCertificate: (id) => request(`/api/certificates/${id}`, { method: "DELETE" }),
 };
