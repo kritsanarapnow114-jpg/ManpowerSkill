@@ -1,0 +1,102 @@
+import { lvlColor, stColor, initials, escapeHtml, taskPct } from "../format.js";
+import { radarSVG } from "../radar.js";
+import { icons } from "../icons.js";
+
+export function renderDetail({ emp }) {
+  const stationsHtml = emp.st.map((s) => `
+    <div class="station-chip">
+      <div class="station-chip-top">
+        <div class="station-tag" style="background:${stColor(s.v)}">${escapeHtml(s.code.replace("ST-", ""))}</div>
+        <span style="font-weight:800;font-size:14px;color:${stColor(s.v)}">${s.v}%</span>
+      </div>
+      <div class="station-name">${escapeHtml(s.name)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${s.v}%;background:${stColor(s.v)}"></div></div>
+    </div>
+  `).join("");
+
+  const stats = [
+    { label: "ประกอบวันนี้", val: emp.stats.today, color: "#0c7f93" },
+    { label: "ตรวจ QC", val: emp.stats.qc, color: "#7c4dbc" },
+    { label: "แก้ไขงาน", val: emp.stats.rework, color: "#e0902e" },
+    { label: "ของเสีย", val: emp.stats.defect, color: "#dc2626" },
+  ];
+  const statsHtml = stats.map((st) => `
+    <div class="stat-item">
+      <div class="stat-ring" style="border-color:${st.color}">${escapeHtml(st.val)}</div>
+      <div class="stat-label">${escapeHtml(st.label)}</div>
+    </div>
+  `).join("");
+
+  const radar1 = radarSVG(emp.g1.map((a) => ({ label: a.th, v: a.v })), "#2f8fd0", "rgba(47,143,208,.18)");
+  const radar2 = radarSVG(emp.g2.map((a) => ({ label: a.th, v: a.v })), "#d99a17", "rgba(217,154,23,.26)");
+
+  const empTaskTotal = emp.tasks.length;
+  const empTaskDone = emp.tasks.filter((t) => t.progress >= 100).length;
+  const empTaskPctVal = taskPct(emp.tasks);
+
+  return `
+    <div>
+      <button class="btn-link" data-action="back-to-list">${icons.back} กลับไปรายชื่อ</button>
+      <div class="detail-grid">
+        <div class="card">
+          <div class="detail-head">
+            <div>
+              <div class="detail-name">${escapeHtml(emp.nameEn)}</div>
+              <div class="detail-sub">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}</div>
+            </div>
+            <span class="level-pill" style="background:${lvlColor(emp.level)}">${icons.star} ${escapeHtml(emp.level)}</span>
+            <button class="btn-outline-accent" style="margin-left:auto" data-action="edit-this">${icons.edit} แก้ไขคะแนน</button>
+          </div>
+
+          <div class="radar-grid">
+            <div class="radar-card">
+              <div class="radar-title" style="color:#2f8fd0">Advance standard</div>
+              ${radar1}
+            </div>
+            <div class="radar-card">
+              <div class="radar-title" style="color:#c78912">%Skill judgment</div>
+              ${radar2}
+            </div>
+          </div>
+
+          <div style="margin-top:22px">
+            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+              <span style="font-weight:800;font-size:15px;color:#132530">สถานี / เครื่องจักรที่ชำนาญ</span>
+              <span style="font-size:12.5px;color:#8494a1">Skilled stations</span>
+            </div>
+            <div class="stations-row">${stationsHtml}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="avatar-hero"><div class="avatar-circle-lg">${escapeHtml(initials(emp.nameEn))}</div></div>
+            <div class="hero-card-body">
+              <div class="muted-label">รหัสพนักงาน · เข้าร่วม</div>
+              <div class="hero-meta">${escapeHtml(emp.empCode)} · ${escapeHtml(emp.join)}</div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:16px 18px">
+            <div class="pass-label">Total straight pass rate</div>
+            <div class="pass-value"><span class="num">${emp.pass}</span><span class="pct">%</span></div>
+            <div class="pass-track"><div class="pass-fill" style="width:${emp.pass}%"></div></div>
+            <div class="stat-grid">${statsHtml}</div>
+          </div>
+
+          <div class="card" style="padding:16px 18px">
+            <div class="task-summary-head">
+              <div class="pass-label">งานที่มอบหมาย · Assigned tasks</div>
+              <button class="task-summary-link" data-action="go-tasks">จัดการ →</button>
+            </div>
+            <div class="task-summary-value">
+              <span class="num">${empTaskPctVal}<span>%</span></span>
+              <span class="count">${empTaskDone}/${empTaskTotal} งานเสร็จ</span>
+            </div>
+            <div class="task-summary-track"><div class="task-summary-fill" style="width:${empTaskPctVal}%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}

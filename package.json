@@ -1,0 +1,15 @@
+{
+  "name": "employee-skills",
+  "version": "1.0.0",
+  "description": "Employee capability tracking app - static frontend + Express/Postgres API, deployable to Vercel",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.13.1"
+  }
+}
