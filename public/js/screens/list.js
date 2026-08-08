@@ -17,8 +17,9 @@ export function renderList({ employees }) {
           <div class="player-card-face player-card-front">
             <div class="player-card-rating">
               <div class="player-card-rating-num">${e.pass}</div>
-              <div class="player-card-rating-lvl" style="color:${lvlColor(e.level)}">${escapeHtml(e.level)}</div>
+              <div class="player-card-rating-lvl">${escapeHtml(e.level)}</div>
             </div>
+            <div class="player-card-badge">FLS</div>
             <div class="player-card-photo-wrap">${photo}</div>
             <div class="player-card-name">${escapeHtml(e.nameEn)}</div>
             <div class="player-card-name-th">${escapeHtml(e.name)}</div>

@@ -167,14 +167,25 @@ button { font-family: inherit; }
 }
 .player-card-front {
   color: #fff; align-items: center; text-align: center; padding: 14px 12px 12px; position: relative;
-  background: linear-gradient(rgba(8,16,26,.58), rgba(8,16,26,.72)), url("/img/fls-bg.png") right center / cover no-repeat;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.20) 0%, rgba(255,255,255,0) 38%),
+    linear-gradient(152deg, #0a1c48 0%, #123c7c 30%, #1c6bb0 56%, #189a72 80%, #2cae4c 100%);
 }
 .player-card-rating { position: absolute; top: 12px; left: 14px; line-height: 1; }
 .player-card-rating-num { font-size: 26px; font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,.25); }
 .player-card-rating-lvl { font-size: 9px; font-weight: 700; text-transform: uppercase; opacity: .85; margin-top: 3px; letter-spacing: .5px; }
-.player-card-photo-wrap { margin-top: 36px; }
-.player-card-photo { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(255,255,255,.55); box-shadow: 0 10px 20px -8px rgba(0,0,0,.4); }
-.player-card-photo-empty { display: grid; place-items: center; font-weight: 800; font-size: 24px; background: rgba(255,255,255,.18); color: #fff; }
+.player-card-badge {
+  position: absolute; top: 12px; right: 12px; background: #fff; color: #123c7c;
+  font-weight: 900; font-size: 10.5px; letter-spacing: .4px; padding: 4px 9px; border-radius: 999px;
+  box-shadow: 0 4px 10px -4px rgba(0,0,0,.4);
+}
+.player-card-photo-wrap { margin-top: 38px; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.player-card-photo { max-width: 120px; max-height: 100px; width: auto; height: auto; object-fit: contain; filter: drop-shadow(0 10px 14px rgba(0,0,0,.4)); }
+.player-card-photo-empty {
+  width: 84px; height: 84px; border-radius: 50%; object-fit: unset; max-width: none; max-height: none;
+  display: grid; place-items: center; font-weight: 800; font-size: 24px; background: rgba(255,255,255,.18); color: #fff;
+  box-shadow: 0 10px 20px -8px rgba(0,0,0,.4); filter: none;
+}
 .player-card-name { margin-top: 10px; font-weight: 800; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0 6px; }
 .player-card-name-th { font-size: 11px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0 6px; margin-top: 1px; }
 .player-card-pos { font-size: 10.5px; opacity: .82; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0 8px; }
