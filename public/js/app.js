@@ -281,16 +281,34 @@ async function deleteAttendance(id) {
   render();
 }
 
-const MAX_IMAGE_BYTES = 1_500_000;
+const MAX_SOURCE_IMAGE_BYTES = 15_000_000;
 
-function readImageFile(file) {
+// Downscales + re-encodes as JPEG client-side so uploads stay tiny in the DB
+// (a 3-8MB phone photo becomes ~20-100KB) instead of storing raw base64.
+function readImageFile(file, { maxDim = 500, quality = 0.82 } = {}) {
   return new Promise((resolve, reject) => {
-    if (file.size > MAX_IMAGE_BYTES) {
-      reject(new Error("ไฟล์รูปใหญ่เกินไป (จำกัดไม่เกิน 1.5MB)"));
+    if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+      reject(new Error("ไฟล์รูปใหญ่เกินไป (จำกัดไม่เกิน 15MB)"));
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+          else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("อ่านไฟล์รูปไม่สำเร็จ"));
+      img.src = reader.result;
+    };
     reader.onerror = () => reject(new Error("อ่านไฟล์รูปไม่สำเร็จ"));
     reader.readAsDataURL(file);
   });
@@ -541,7 +559,7 @@ appEl.addEventListener("change", (e) => {
   } else if (t.id === "stn-image-input") {
     const file = t.files && t.files[0];
     if (!file) return;
-    readImageFile(file)
+    readImageFile(file, { maxDim: 500, quality: 0.82 })
       .then((dataUrl) => { state.stationForm.image = dataUrl; state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
   } else if (t.id === "position-select") {
@@ -556,7 +574,7 @@ appEl.addEventListener("change", (e) => {
   } else if (t.id === "cert-image-input") {
     const file = t.files && t.files[0];
     if (!file) return;
-    readImageFile(file)
+    readImageFile(file, { maxDim: 1000, quality: 0.85 })
       .then((dataUrl) => { state.certificateForm.image = dataUrl; state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
   } else if (t.id === "photo-link-input") {
@@ -564,7 +582,7 @@ appEl.addEventListener("change", (e) => {
   } else if (t.id === "photo-file-input") {
     const file = t.files && t.files[0];
     if (!file) return;
-    readImageFile(file)
+    readImageFile(file, { maxDim: 400, quality: 0.82 })
       .then((dataUrl) => { setDraftField("photo", dataUrl); state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
   }
