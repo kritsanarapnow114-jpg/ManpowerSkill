@@ -2,7 +2,7 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
-const { G1_AXES, G2_AXES, STATIONS, LEVELS } = require("../labels");
+const { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS } = require("../labels");
 const { clamp, avgOf, passOf } = require("../compute");
 
 const router = express.Router();
@@ -34,6 +34,7 @@ async function serialize(row) {
     id: row.id,
     name: row.name,
     nameEn: row.name_en,
+    gender: row.gender,
     position: row.position,
     level: row.level,
     empCode: row.emp_code,
@@ -61,6 +62,10 @@ function validateBody(body, { partial } = {}) {
   if (need("nameEn")) {
     if (typeof body.nameEn !== "string" || !body.nameEn.trim()) errors.push("nameEn is required");
     else out.nameEn = body.nameEn.trim();
+  }
+  if (need("gender")) {
+    if (body.gender !== "" && !GENDERS.includes(body.gender)) errors.push(`gender must be one of ${GENDERS.join(", ")}`);
+    else out.gender = body.gender || "";
   }
   if (need("position")) {
     if (typeof body.position !== "string" || !body.position.trim()) errors.push("position is required");
@@ -128,9 +133,9 @@ router.post("/", async (req, res, next) => {
 
     const id = "E" + Date.now();
     await pool.query(
-      `INSERT INTO employees (id, name, name_en, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [id, out.name, out.nameEn, out.position, out.level, out.empCode, out.join,
+      `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [id, out.name, out.nameEn, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect]
     );
@@ -151,10 +156,10 @@ router.put("/:id", async (req, res, next) => {
     if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
     await pool.query(
-      `UPDATE employees SET name=$1, name_en=$2, position=$3, level=$4, emp_code=$5,
-         join_year=$6, g1=$7, g2=$8, st=$9, stat_today=$10, stat_qc=$11, stat_rework=$12, stat_defect=$13
-       WHERE id=$14`,
-      [out.name, out.nameEn, out.position, out.level, out.empCode, out.join,
+      `UPDATE employees SET name=$1, name_en=$2, gender=$3, position=$4, level=$5, emp_code=$6,
+         join_year=$7, g1=$8, g2=$9, st=$10, stat_today=$11, stat_qc=$12, stat_rework=$13, stat_defect=$14
+       WHERE id=$15`,
+      [out.name, out.nameEn, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect, req.params.id]
     );

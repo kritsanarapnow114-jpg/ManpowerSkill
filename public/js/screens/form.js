@@ -34,6 +34,14 @@ export function renderForm({ draft, meta }) {
     return `<button class="level-btn${active ? " active" : ""}" style="${style}" data-action="set-level" data-level="${l}">${l}</button>`;
   }).join("");
 
+  const genderButtons = meta.genders.map((g) => {
+    const active = draft.gender === g;
+    const style = active
+      ? `border-color:#0c7f93;background:#0c7f93;color:#fff`
+      : `border-color:#dbe3e9;background:#f5f8fa;color:#5a6a78`;
+    return `<button class="level-btn${active ? " active" : ""}" style="${style}" data-action="set-gender" data-gender="${escapeHtml(g)}">${escapeHtml(g)}</button>`;
+  }).join("");
+
   const radar1 = radarSVG(meta.g1Axes.map((axis, i) => ({ label: axis.th, v: draft.g1[i] })), "#2f8fd0", "rgba(47,143,208,.18)");
   const radar2 = radarSVG(meta.g2Axes.map((axis, i) => ({ label: axis.th, v: draft.g2[i] })), "#d99a17", "rgba(217,154,23,.26)");
 
@@ -57,9 +65,15 @@ export function renderForm({ draft, meta }) {
           <label class="field-label">ตำแหน่ง<input class="field-input" value="${escapeHtml(draft.position)}" data-field="position"></label>
           <label class="field-label">รหัสพนักงาน<input class="field-input" value="${escapeHtml(draft.empCode)}" data-field="empCode"></label>
         </div>
-        <div style="margin-top:16px">
-          <div class="field-label" style="margin-bottom:8px">ระดับความสามารถ</div>
-          <div class="level-select-row">${levelButtons}</div>
+        <div class="form-select-row">
+          <div>
+            <div class="field-label" style="margin-bottom:8px">ระดับความสามารถ</div>
+            <div class="level-select-row">${levelButtons}</div>
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:8px">เพศ</div>
+            <div class="level-select-row">${genderButtons}</div>
+          </div>
         </div>
       </div>
 

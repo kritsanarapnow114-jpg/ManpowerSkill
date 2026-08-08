@@ -142,25 +142,33 @@ button { font-family: inherit; }
 .task-summary-track { height: 8px; border-radius: 6px; background: #eef2f5; margin-top: 10px; overflow: hidden; }
 .task-summary-fill { height: 100%; background: linear-gradient(90deg,#7a45b5,#0c7f93); }
 
-/* ---------- list screen ---------- */
-.list-card { background: #fff; border: 1px solid #e2e9ee; border-radius: 16px; overflow: auto; box-shadow: 0 24px 44px -34px rgba(16,40,54,.4); }
-.list-inner { min-width: 940px; }
-.list-row-grid { display: grid; grid-template-columns: 96px minmax(190px,1.6fr) 150px 118px minmax(150px,1.4fr) 84px 96px; gap: 10px; }
-.list-head { padding: 14px 20px; background: #f5f8fa; border-bottom: 1px solid #e6edf1; font-size: 11.5px; font-weight: 700; color: #7f8f9c; text-transform: uppercase; letter-spacing: .4px; }
-.list-row { padding: 13px 20px; border-bottom: 1px solid #f0f4f6; align-items: center; cursor: pointer; font-size: 13.5px; }
-.list-row:hover { background: #f7fafb; }
+/* ---------- list screen (card grid) ---------- */
+.employee-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 16px; }
+.employee-card {
+  background: #fff; border: 1px solid #e2e9ee; border-radius: 16px; padding: 18px;
+  box-shadow: 0 24px 44px -34px rgba(16,40,54,.4); cursor: pointer; transition: box-shadow .15s, border-color .15s;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.employee-card:hover { box-shadow: 0 14px 30px -16px rgba(16,40,54,.35); border-color: #c9d6dd; }
+.employee-card-top { display: flex; align-items: center; gap: 11px; }
+.employee-card-meta { display: flex; align-items: center; gap: 6px; font-size: 12.5px; flex-wrap: wrap; }
+.employee-card-dot { color: #c3ccd3; }
+.employee-card-stats { display: flex; align-items: flex-end; gap: 16px; }
+.employee-card-stat { flex: 1; }
+.employee-card-stat-pass { flex: none; text-align: center; }
+.employee-card-stat-label { font-size: 11px; font-weight: 700; color: #8494a1; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px; }
+.employee-card-edit { align-self: flex-start; }
+
 .list-code { font-weight: 700; color: #0c7f93; font-size: 13px; }
-.list-name-cell { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .avatar-sm { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12.5px; color: #fff; }
 .list-name-en { font-weight: 700; color: #1b2b36; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-name-th { font-size: 12px; color: #8494a1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-position { color: #5a6a78; }
-.level-badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; }
+.level-badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; flex: none; }
 .list-avg-cell { display: flex; align-items: center; gap: 9px; }
 .list-avg-track { flex: 1; height: 7px; border-radius: 5px; background: #eef2f5; overflow: hidden; }
 .list-avg-num { font-weight: 800; color: #33434f; font-size: 13px; width: 34px; display: inline-block; }
-.list-pass-cell { text-align: center; font-weight: 800; }
-.list-actions-cell { display: flex; gap: 6px; justify-content: flex-end; }
+.list-pass-cell { font-weight: 800; }
 .btn-edit-row { border: 1px solid #e2e9ee; background: #fff; cursor: pointer; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; color: #5a6a78; font-weight: 600; }
 
 /* ---------- overview screen ---------- */
@@ -204,6 +212,7 @@ button { font-family: inherit; }
   display: block; width: 100%; margin-top: 6px; border: 1px solid #dbe3e9; border-radius: 9px;
   padding: 10px 12px; font-size: 14px; font-family: inherit; color: #1b2b36; font-weight: 500; background: #fff;
 }
+.form-select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
 .level-select-row { display: flex; gap: 10px; margin-top: 8px; }
 .level-btn {
   display: flex; flex: 1; justify-content: center; align-items: center; cursor: pointer; font-family: inherit;

@@ -50,6 +50,7 @@ function draftFromEmployee(emp) {
     isNew: false,
     name: emp.name,
     nameEn: emp.nameEn,
+    gender: emp.gender,
     position: emp.position,
     empCode: emp.empCode,
     join: emp.join,
@@ -76,6 +77,7 @@ function addNew() {
     isNew: true,
     name: "พนักงานใหม่",
     nameEn: "NEW EMPLOYEE",
+    gender: state.meta.genders[0],
     position: "Assembly Operator",
     empCode: "EMP-",
     join: "2026",
@@ -92,7 +94,7 @@ function addNew() {
 async function saveForm() {
   const d = state.draft;
   const payload = {
-    name: d.name, nameEn: d.nameEn, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
+    name: d.name, nameEn: d.nameEn, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
     g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
   };
   try {
@@ -125,6 +127,12 @@ function setDraftField(field, value) {
 function setDraftLevel(level) {
   if (!state.draft) return;
   state.draft.level = level;
+  render();
+}
+
+function setDraftGender(gender) {
+  if (!state.draft) return;
+  state.draft.gender = gender;
   render();
 }
 
@@ -298,6 +306,7 @@ appEl.addEventListener("click", (e) => {
   else if (action === "save-form") saveForm();
   else if (action === "cancel-form") cancelForm();
   else if (action === "set-level") setDraftLevel(actionEl.dataset.level);
+  else if (action === "set-gender") setDraftGender(actionEl.dataset.gender);
   else if (action === "add-task") addTask();
   else if (action === "delete-task") deleteTask(actionEl.dataset.taskId, actionEl.dataset.empId);
   else if (action === "add-new") addNew();

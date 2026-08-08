@@ -24,6 +24,7 @@ const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     name_en TEXT NOT NULL,
+    gender TEXT NOT NULL DEFAULT '',
     position TEXT NOT NULL,
     level TEXT NOT NULL,
     emp_code TEXT NOT NULL,
@@ -37,6 +38,8 @@ const SCHEMA_SQL = `
     stat_defect TEXT NOT NULL DEFAULT ''
   );
 
+  ALTER TABLE employees ADD COLUMN IF NOT EXISTS gender TEXT NOT NULL DEFAULT '';
+
   CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
     employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -48,28 +51,28 @@ const SCHEMA_SQL = `
 `;
 
 const SEED_EMPLOYEES = [
-  ["E1", "นายอภิเดช สุขดี", "MR. APIDACH SUKDEE", "Senior Assembly Operator", "Advance", "EMP-1042", "2019",
+  ["E1", "นายอภิเดช สุขดี", "MR. APIDACH SUKDEE", "ชาย", "Senior Assembly Operator", "Advance", "EMP-1042", "2019",
     [100, 100, 87, 91, 100, 100], [94, 94, 76, 94, 94], [95, 88, 100, 92, 70, 100, 85, 90, 78, 95],
     "8/12", "3/15", "0/30", "1/30"],
-  ["E2", "นางสาวมนัสนันท์ ใจดี", "MS. MANATNAN JAIDEE", "QC Inspector", "Expert", "EMP-0871", "2016",
+  ["E2", "นางสาวมนัสนันท์ ใจดี", "MS. MANATNAN JAIDEE", "หญิง", "QC Inspector", "Expert", "EMP-0871", "2016",
     [100, 100, 100, 96, 100, 100], [100, 98, 92, 100, 96], [80, 75, 95, 90, 88, 100, 80, 95, 96, 100],
     "11/12", "12/15", "0/30", "0/30"],
-  ["E3", "นายกฤษณะ วงศ์ทอง", "MR. KRITSANA WONGTHONG", "Assembly Operator", "Basic", "EMP-1120", "2023",
+  ["E3", "นายกฤษณะ วงศ์ทอง", "MR. KRITSANA WONGTHONG", "ชาย", "Assembly Operator", "Basic", "EMP-1120", "2023",
     [85, 70, 72, 64, 90, 80], [70, 68, 60, 72, 66], [60, 40, 75, 68, 30, 55, 70, 50, 45, 58],
     "5/12", "0/15", "2/30", "3/30"],
-  ["E4", "นางสาวปวีณา แสงจันทร์", "MS. PAWEENA SANGCHAN", "Line Leader", "Expert", "EMP-0654", "2014",
+  ["E4", "นางสาวปวีณา แสงจันทร์", "MS. PAWEENA SANGCHAN", "หญิง", "Line Leader", "Expert", "EMP-0654", "2014",
     [100, 100, 98, 100, 100, 100], [98, 100, 90, 96, 100], [92, 90, 100, 98, 85, 100, 90, 96, 94, 100],
     "12/12", "10/15", "0/30", "0/30"],
-  ["E5", "นายธนากร รักงาน", "MR. THANAKORN RAKNGAN", "Assembly Operator", "Advance", "EMP-1005", "2020",
+  ["E5", "นายธนากร รักงาน", "MR. THANAKORN RAKNGAN", "ชาย", "Assembly Operator", "Advance", "EMP-1005", "2020",
     [95, 92, 88, 84, 96, 90], [90, 88, 80, 86, 90], [85, 80, 92, 88, 72, 90, 84, 88, 76, 90],
     "9/12", "4/15", "1/30", "1/30"],
-  ["E6", "นางสาวศิริพร มั่นคง", "MS. SIRIPORN MANKONG", "QC Inspector", "Advance", "EMP-0990", "2021",
+  ["E6", "นางสาวศิริพร มั่นคง", "MS. SIRIPORN MANKONG", "หญิง", "QC Inspector", "Advance", "EMP-0990", "2021",
     [92, 96, 85, 88, 94, 92], [92, 90, 82, 90, 88], [70, 65, 90, 86, 80, 96, 78, 90, 88, 92],
     "7/12", "8/15", "0/30", "1/30"],
-  ["E7", "นายวิชัย ตั้งใจ", "MR. WICHAI TANGJAI", "Assembly Operator", "Basic", "EMP-1201", "2024",
+  ["E7", "นายวิชัย ตั้งใจ", "MR. WICHAI TANGJAI", "ชาย", "Assembly Operator", "Basic", "EMP-1201", "2024",
     [78, 62, 66, 58, 84, 74], [64, 60, 55, 66, 62], [50, 35, 66, 60, 25, 48, 62, 44, 40, 52],
     "4/12", "0/15", "3/30", "4/30"],
-  ["E8", "นางสาวจิราภา ดวงแก้ว", "MS. JIRAPA DUANGKAEW", "Senior Assembly Operator", "Advance", "EMP-0888", "2018",
+  ["E8", "นางสาวจิราภา ดวงแก้ว", "MS. JIRAPA DUANGKAEW", "หญิง", "Senior Assembly Operator", "Advance", "EMP-0888", "2018",
     [98, 94, 90, 88, 98, 96], [92, 94, 84, 90, 92], [88, 84, 96, 92, 78, 94, 86, 92, 82, 94],
     "10/12", "6/15", "0/30", "0/30"],
 ];
@@ -106,14 +109,14 @@ async function ensureSchema() {
     await client.query("BEGIN");
     try {
       for (const row of SEED_EMPLOYEES) {
-        const [id, name, nameEn, position, level, empCode, joinYear, g1, g2, st, statToday, statQc, statRework, statDefect] = row;
+        const [id, name, nameEn, gender, position, level, empCode, joinYear, g1, g2, st, statToday, statQc, statRework, statDefect] = row;
         if (g1.length !== G1_AXES.length || g2.length !== G2_AXES.length || st.length !== STATIONS.length) {
           throw new Error(`Seed data for ${id} has mismatched axis/station counts`);
         }
         await client.query(
-          `INSERT INTO employees (id, name, name_en, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-          [id, name, nameEn, position, level, empCode, joinYear, JSON.stringify(g1), JSON.stringify(g2), JSON.stringify(st), statToday, statQc, statRework, statDefect]
+          `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          [id, name, nameEn, gender, position, level, empCode, joinYear, JSON.stringify(g1), JSON.stringify(g2), JSON.stringify(st), statToday, statQc, statRework, statDefect]
         );
         for (const t of SEED_TASKS[id] || []) {
           await client.query(

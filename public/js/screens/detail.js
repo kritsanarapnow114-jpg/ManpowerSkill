@@ -42,7 +42,7 @@ export function renderDetail({ emp }) {
           <div class="detail-head">
             <div>
               <div class="detail-name">${escapeHtml(emp.nameEn)}</div>
-              <div class="detail-sub">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}</div>
+              <div class="detail-sub">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}${emp.gender ? ` · ${escapeHtml(emp.gender)}` : ""}</div>
             </div>
             <span class="level-pill" style="background:${lvlColor(emp.level)}">${icons.star} ${escapeHtml(emp.level)}</span>
             <button class="btn-outline-accent" style="margin-left:auto" data-action="edit-this">${icons.edit} แก้ไขคะแนน</button>

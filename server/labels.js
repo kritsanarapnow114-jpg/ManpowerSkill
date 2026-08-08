@@ -33,4 +33,6 @@ const STATIONS = [
 
 const LEVELS = ["Basic", "Advance", "Expert"];
 
-module.exports = { G1_AXES, G2_AXES, STATIONS, LEVELS };
+const GENDERS = ["ชาย", "หญิง"];
+
+module.exports = { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS };
