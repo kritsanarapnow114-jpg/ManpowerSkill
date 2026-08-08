@@ -2,7 +2,7 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
-const { G1_AXES, G2_AXES, STATIONS, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
+const { G1_AXES, G2_AXES, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
 const { clamp, avgOf, passOf } = require("../compute");
 
 const router = express.Router();
@@ -29,6 +29,11 @@ async function fetchTasks(employeeId) {
   return rows.map((t) => ({ id: t.id, title: t.title, due: t.due, progress: t.progress }));
 }
 
+async function fetchStations() {
+  const { rows } = await pool.query("SELECT * FROM stations ORDER BY sort_order, code");
+  return rows;
+}
+
 async function fetchLeaveUsed(employeeId) {
   const { rows } = await pool.query(
     "SELECT type, COUNT(*)::int AS n FROM attendance WHERE employee_id = $1 AND type = ANY($2) GROUP BY type",
@@ -42,9 +47,10 @@ async function fetchLeaveUsed(employeeId) {
 async function serialize(row) {
   const g1Values = row.g1;
   const g2Values = row.g2;
-  const stValues = row.st;
+  const stValues = row.st || {};
   const tasks = await fetchTasks(row.id);
   const used = await fetchLeaveUsed(row.id);
+  const stations = await fetchStations();
 
   return {
     id: row.id,
@@ -57,7 +63,7 @@ async function serialize(row) {
     join: row.join_year,
     g1: G1_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
     g2: G2_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
-    st: STATIONS.map((s, i) => ({ code: s.code, name: s.name, v: stValues[i] })),
+    st: stations.map((s) => ({ id: s.id, code: s.code, name: s.name, image: s.image, v: stValues[s.id] ?? 0 })),
     stats: { today: row.stat_today, qc: row.stat_qc, rework: row.stat_rework, defect: row.stat_defect },
     pass: passOf(g1Values, g2Values),
     avg: avgOf([...g1Values, ...g2Values]),
@@ -112,8 +118,12 @@ function validateBody(body, { partial } = {}) {
     else out.g2 = body.g2.map(clamp);
   }
   if (need("st")) {
-    if (!Array.isArray(body.st) || body.st.length !== STATIONS.length) errors.push(`st must have ${STATIONS.length} values`);
-    else out.st = body.st.map(clamp);
+    if (typeof body.st !== "object" || body.st === null || Array.isArray(body.st)) {
+      errors.push("st must be an object of station scores keyed by station id");
+    } else {
+      out.st = {};
+      for (const [stationId, v] of Object.entries(body.st)) out.st[stationId] = clamp(v);
+    }
   }
   if (need("leaveQuota")) {
     const lq = body.leaveQuota || {};

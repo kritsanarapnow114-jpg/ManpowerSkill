@@ -21,6 +21,7 @@ export function renderDetail({ emp }) {
 
   const stationsHtml = emp.st.map((s) => `
     <div class="station-chip">
+      ${s.image ? `<img class="station-chip-img" src="${escapeHtml(s.image)}" alt="">` : ""}
       <div class="station-chip-top">
         <div class="station-tag" style="background:${stColor(s.v)}">${escapeHtml(s.code.replace("ST-", ""))}</div>
         <span style="font-weight:800;font-size:14px;color:${stColor(s.v)}">${s.v}%</span>

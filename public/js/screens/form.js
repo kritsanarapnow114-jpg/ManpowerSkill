@@ -18,13 +18,20 @@ export function renderForm({ draft, meta }) {
     </div>
   `).join("");
 
-  const stSliders = meta.stations.map((station, i) => `
-    <div class="station-form-row">
-      <span class="slider-label">${escapeHtml(station.name)}</span>
-      <input type="range" min="0" max="100" value="${draft.st[i]}" data-slider="st" data-index="${i}">
-      <span class="slider-value" id="slider-val-st-${i}" style="color:${stColor(draft.st[i])}">${draft.st[i]}%</span>
-    </div>
-  `).join("");
+  const stSliders = meta.stations.map((station) => {
+    const v = draft.st[station.id] ?? 0;
+    const thumb = station.image
+      ? `<img class="station-form-thumb" src="${escapeHtml(station.image)}" alt="">`
+      : `<span class="station-form-thumb station-form-thumb-empty"></span>`;
+    return `
+      <div class="station-form-row">
+        ${thumb}
+        <span class="slider-label">${escapeHtml(station.name)}</span>
+        <input type="range" min="0" max="100" value="${v}" data-slider="st" data-station-id="${escapeHtml(station.id)}">
+        <span class="slider-value" id="slider-val-st-${escapeHtml(station.id)}" style="color:${stColor(v)}">${v}%</span>
+      </div>
+    `;
+  }).join("");
 
   const levelButtons = meta.levels.map((l) => {
     const active = draft.level === l;
@@ -96,7 +103,10 @@ export function renderForm({ draft, meta }) {
       </div>
 
       <div class="card" style="padding:18px 22px;margin-top:18px">
-        <div style="font-weight:800;font-size:14px;color:#132530;margin-bottom:14px">ความชำนาญสถานี / เครื่องจักร</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-weight:800;font-size:14px;color:#132530">ความชำนาญสถานี / เครื่องจักร</div>
+          <button class="btn-link" data-nav="stations">จัดการสถานี / อัปโหลดรูป →</button>
+        </div>
         <div class="station-form-grid">${stSliders}</div>
       </div>
     </div>

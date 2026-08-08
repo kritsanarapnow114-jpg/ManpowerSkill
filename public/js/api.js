@@ -30,4 +30,8 @@ export const api = {
   listAttendance: () => request("/api/attendance"),
   createAttendance: (data) => request("/api/attendance", json("POST", data)),
   deleteAttendance: (id) => request(`/api/attendance/${id}`, { method: "DELETE" }),
+  listStations: () => request("/api/stations"),
+  createStation: (data) => request("/api/stations", json("POST", data)),
+  updateStation: (id, data) => request(`/api/stations/${id}`, json("PUT", data)),
+  deleteStation: (id) => request(`/api/stations/${id}`, { method: "DELETE" }),
 };

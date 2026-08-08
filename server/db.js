@@ -60,6 +60,14 @@ const SCHEMA_SQL = `
     note TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+
+  CREATE TABLE IF NOT EXISTS stations (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    image TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
 `;
 
 const SEED_EMPLOYEES = [
@@ -125,6 +133,31 @@ async function ensureSchema() {
   const client = await pool.connect();
   try {
     await client.query(SCHEMA_SQL);
+
+    // Seed the stations table once; further station edits happen via the API.
+    const stationCount = await client.query("SELECT COUNT(*)::int AS count FROM stations");
+    if (stationCount.rows[0].count === 0) {
+      for (let i = 0; i < STATIONS.length; i++) {
+        const s = STATIONS[i];
+        await client.query(
+          "INSERT INTO stations (id, code, name, image, sort_order) VALUES ($1,$2,$3,'',$4) ON CONFLICT (id) DO NOTHING",
+          [s.code, s.code, s.name, i]
+        );
+      }
+    }
+    const { rows: stationRows } = await client.query("SELECT id FROM stations ORDER BY sort_order");
+    const stationIds = stationRows.map((r) => r.id);
+
+    // One-time migration: employees.st used to be a positional array; it's now an object keyed by station id.
+    const { rows: empRows } = await client.query("SELECT id, st FROM employees");
+    for (const row of empRows) {
+      if (Array.isArray(row.st)) {
+        const obj = {};
+        stationIds.forEach((id, i) => { obj[id] = row.st[i] ?? 0; });
+        await client.query("UPDATE employees SET st = $1 WHERE id = $2", [JSON.stringify(obj), row.id]);
+      }
+    }
+
     const { rows } = await client.query("SELECT COUNT(*)::int AS count FROM employees");
     if (rows[0].count > 0) return;
 
@@ -132,13 +165,15 @@ async function ensureSchema() {
     try {
       for (const row of SEED_EMPLOYEES) {
         const [id, name, nameEn, gender, position, level, empCode, joinYear, g1, g2, st, statToday, statQc, statRework, statDefect] = row;
-        if (g1.length !== G1_AXES.length || g2.length !== G2_AXES.length || st.length !== STATIONS.length) {
+        if (g1.length !== G1_AXES.length || g2.length !== G2_AXES.length || st.length !== stationIds.length) {
           throw new Error(`Seed data for ${id} has mismatched axis/station counts`);
         }
+        const stObj = {};
+        stationIds.forEach((sid, i) => { stObj[sid] = st[i]; });
         await client.query(
           `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-          [id, name, nameEn, gender, position, level, empCode, joinYear, JSON.stringify(g1), JSON.stringify(g2), JSON.stringify(st), statToday, statQc, statRework, statDefect]
+          [id, name, nameEn, gender, position, level, empCode, joinYear, JSON.stringify(g1), JSON.stringify(g2), JSON.stringify(stObj), statToday, statQc, statRework, statDefect]
         );
         for (const t of SEED_TASKS[id] || []) {
           await client.query(

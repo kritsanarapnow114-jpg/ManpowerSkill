@@ -8,6 +8,7 @@ import { renderDetail } from "./screens/detail.js";
 import { renderForm } from "./screens/form.js";
 import { renderTasks } from "./screens/tasks.js";
 import { renderAttendance } from "./screens/attendance.js";
+import { renderStations } from "./screens/stations.js";
 
 const appEl = document.getElementById("app");
 
@@ -24,6 +25,7 @@ const state = {
   taskForm: { employeeId: null, title: "", due: "" },
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
+  stationForm: { editingId: null, code: "", name: "", image: "" },
   loading: true,
   error: null,
 };
@@ -35,6 +37,7 @@ const PAGE_MAP = {
   form: ["แก้ไขคะแนนความสามารถ", "Edit capability scores"],
   tasks: ["งานที่มอบหมาย", "Assigned tasks & progress"],
   attendance: ["บันทึกขาดลามาสาย", "Attendance & leave records"],
+  stations: ["จัดการสถานี / เครื่องจักร", "Manage stations & machine photos"],
 };
 
 function findEmployee(id) {
@@ -66,7 +69,7 @@ function draftFromEmployee(emp) {
     leaveQuota: { vacation: emp.leave.vacation.quota, sick: emp.leave.sick.quota, personal: emp.leave.personal.quota },
     g1: emp.g1.map((a) => a.v),
     g2: emp.g2.map((a) => a.v),
-    st: emp.st.map((a) => a.v),
+    st: Object.fromEntries(emp.st.map((s) => [s.id, s.v])),
     stats: { ...emp.stats },
   };
 }
@@ -94,7 +97,7 @@ function addNew() {
     leaveQuota: { ...state.meta.defaultLeaveQuota },
     g1: state.meta.g1Axes.map(() => 0),
     g2: state.meta.g2Axes.map(() => 0),
-    st: state.meta.stations.map(() => 0),
+    st: Object.fromEntries(state.meta.stations.map((s) => [s.id, 0])),
     stats: { today: "0/0", qc: "0/0", rework: "0/0", defect: "0/0" },
   };
   state.screen = "form";
@@ -158,24 +161,24 @@ function updateDraftSlider(group, index, value) {
   state.draft[group][index] = v;
 
   const valEl = document.getElementById(`slider-val-${group}-${index}`);
-  if (valEl) {
-    if (group === "st") {
-      valEl.textContent = v + "%";
-      valEl.style.color = stColor(v);
-    } else {
-      valEl.textContent = v + "%";
-    }
-  }
+  if (valEl) valEl.textContent = v + "%";
 
-  if (group === "g1" || group === "g2") {
-    const radarEl = document.getElementById(`radar-${group}`);
-    const axes = state.meta[group === "g1" ? "g1Axes" : "g2Axes"];
-    const color = group === "g1" ? "#2f8fd0" : "#d99a17";
-    const fill = group === "g1" ? "rgba(47,143,208,.18)" : "rgba(217,154,23,.26)";
-    if (radarEl) {
-      radarEl.innerHTML = radarSVG(axes.map((axis, i) => ({ label: axis.th, v: state.draft[group][i] })), color, fill);
-    }
+  const radarEl = document.getElementById(`radar-${group}`);
+  const axes = state.meta[group === "g1" ? "g1Axes" : "g2Axes"];
+  const color = group === "g1" ? "#2f8fd0" : "#d99a17";
+  const fill = group === "g1" ? "rgba(47,143,208,.18)" : "rgba(217,154,23,.26)";
+  if (radarEl) {
+    radarEl.innerHTML = radarSVG(axes.map((axis, i) => ({ label: axis.th, v: state.draft[group][i] })), color, fill);
   }
+}
+
+function updateDraftStation(stationId, value) {
+  if (!state.draft) return;
+  const v = clamp(value);
+  state.draft.st[stationId] = v;
+
+  const valEl = document.getElementById(`slider-val-st-${stationId}`);
+  if (valEl) { valEl.textContent = v + "%"; valEl.style.color = stColor(v); }
 }
 
 async function addTask() {
@@ -272,6 +275,67 @@ async function deleteAttendance(id) {
   render();
 }
 
+const MAX_IMAGE_BYTES = 1_500_000;
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (file.size > MAX_IMAGE_BYTES) {
+      reject(new Error("ไฟล์รูปใหญ่เกินไป (จำกัดไม่เกิน 1.5MB)"));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("อ่านไฟล์รูปไม่สำเร็จ"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function refreshMeta() {
+  const [meta, employees] = await Promise.all([api.getMeta(), api.listEmployees()]);
+  state.meta = meta;
+  state.employees = employees;
+}
+
+function editStation(id) {
+  const s = state.meta.stations.find((x) => x.id === id);
+  if (!s) return;
+  state.stationForm = { editingId: s.id, code: s.code, name: s.name, image: s.image || "" };
+  render();
+}
+
+function cancelStationEdit() {
+  state.stationForm = { editingId: null, code: "", name: "", image: "" };
+  render();
+}
+
+async function saveStation() {
+  const { editingId, code, name, image } = state.stationForm;
+  if (!code.trim() || !name.trim()) return;
+  try {
+    const payload = { code: code.trim(), name: name.trim(), image };
+    if (editingId) await api.updateStation(editingId, payload);
+    else await api.createStation(payload);
+    await refreshMeta();
+    state.stationForm = { editingId: null, code: "", name: "", image: "" };
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกสถานีไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteStation(id) {
+  try {
+    await api.deleteStation(id);
+    await refreshMeta();
+    if (state.stationForm.editingId === id) state.stationForm = { editingId: null, code: "", name: "", image: "" };
+    state.error = null;
+  } catch (err) {
+    state.error = "ลบสถานีไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
 function renderShell() {
   const { screen } = state;
   const isEmpScreen = screen === "list" || screen === "detail" || screen === "form";
@@ -288,6 +352,8 @@ function renderShell() {
     content = renderTasks({ employees: state.employees, taskForm: state.taskForm, showEnglish: true });
   } else if (screen === "attendance") {
     content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
+  } else if (screen === "stations") {
+    content = renderStations({ stations: state.meta.stations, form: state.stationForm });
   } else if (screen === "form" && state.draft) {
     content = renderForm({ draft: state.draft, meta: state.meta });
   } else {
@@ -316,6 +382,9 @@ function renderShell() {
         </button>
         <button class="nav-btn${screen === "attendance" ? " active" : ""}" data-nav="attendance">
           ${icons.attendance}<span>ขาดลามาสาย<small>Attendance</small></span>
+        </button>
+        <button class="nav-btn${screen === "stations" ? " active" : ""}" data-nav="stations">
+          ${icons.machine}<span>จัดการสถานี<small>Stations</small></span>
         </button>
         <div class="sidebar-footer">
           <div class="line1">สายการประกอบ · Line A</div>
@@ -367,6 +436,10 @@ appEl.addEventListener("click", (e) => {
   else if (action === "delete-task") deleteTask(actionEl.dataset.taskId, actionEl.dataset.empId);
   else if (action === "add-attendance") addAttendance();
   else if (action === "delete-attendance") deleteAttendance(actionEl.dataset.id);
+  else if (action === "edit-station") editStation(actionEl.dataset.id);
+  else if (action === "cancel-station-edit") cancelStationEdit();
+  else if (action === "save-station") saveStation();
+  else if (action === "delete-station") deleteStation(actionEl.dataset.id);
   else if (action === "add-new") addNew();
 });
 
@@ -376,6 +449,8 @@ appEl.addEventListener("input", (e) => {
     setDraftField(t.dataset.field, t.value);
   } else if (t.dataset && t.dataset.leaveField) {
     setDraftLeaveQuota(t.dataset.leaveField, t.value);
+  } else if (t.dataset && t.dataset.slider === "st") {
+    updateDraftStation(t.dataset.stationId, t.value);
   } else if (t.dataset && t.dataset.slider) {
     updateDraftSlider(t.dataset.slider, parseInt(t.dataset.index, 10), t.value);
   } else if (t.hasAttribute("data-task-slider")) {
@@ -386,6 +461,10 @@ appEl.addEventListener("input", (e) => {
     state.taskForm.due = t.value;
   } else if (t.id === "att-note-input") {
     state.attendanceForm.note = t.value;
+  } else if (t.id === "stn-code-input") {
+    state.stationForm.code = t.value;
+  } else if (t.id === "stn-name-input") {
+    state.stationForm.name = t.value;
   }
 });
 
@@ -402,6 +481,12 @@ appEl.addEventListener("change", (e) => {
     state.attendanceForm.type = t.value;
   } else if (t.id === "att-date-input") {
     state.attendanceForm.date = t.value;
+  } else if (t.id === "stn-image-input") {
+    const file = t.files && t.files[0];
+    if (!file) return;
+    readImageFile(file)
+      .then((dataUrl) => { state.stationForm.image = dataUrl; state.error = null; render(); })
+      .catch((err) => { state.error = err.message; render(); });
   }
 });
 
