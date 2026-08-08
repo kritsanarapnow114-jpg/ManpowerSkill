@@ -283,14 +283,19 @@ async function deleteAttendance(id) {
 
 const MAX_SOURCE_IMAGE_BYTES = 15_000_000;
 
-// Downscales + re-encodes as JPEG client-side so uploads stay tiny in the DB
+// Downscales + re-encodes client-side so uploads stay tiny in the DB
 // (a 3-8MB phone photo becomes ~20-100KB) instead of storing raw base64.
+// Source formats that can carry transparency (PNG/WebP/GIF) are re-encoded
+// as PNG so a background-removed cutout keeps its transparent background;
+// everything else (JPEG, which has no alpha anyway) becomes JPEG for
+// better compression.
 function readImageFile(file, { maxDim = 500, quality = 0.82 } = {}) {
   return new Promise((resolve, reject) => {
     if (file.size > MAX_SOURCE_IMAGE_BYTES) {
       reject(new Error("ไฟล์รูปใหญ่เกินไป (จำกัดไม่เกิน 15MB)"));
       return;
     }
+    const keepsAlpha = ["image/png", "image/webp", "image/gif"].includes(file.type);
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
@@ -304,7 +309,7 @@ function readImageFile(file, { maxDim = 500, quality = 0.82 } = {}) {
         canvas.width = width;
         canvas.height = height;
         canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        resolve(keepsAlpha ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", quality));
       };
       img.onerror = () => reject(new Error("อ่านไฟล์รูปไม่สำเร็จ"));
       img.src = reader.result;
