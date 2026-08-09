@@ -25,10 +25,37 @@ router.use(async (req, res, next) => {
 
 async function fetchTasks(employeeId) {
   const { rows } = await pool.query(
-    "SELECT id, title, due, progress FROM tasks WHERE employee_id = $1 ORDER BY created_at",
+    `SELECT ta.id AS assignment_id, ta.done, t.id AS task_id, t.title, t.due, t.level, t.axis_group, t.axis_index,
+       (SELECT COALESCE(array_agg(e2.name_en ORDER BY e2.name_en), ARRAY[]::text[])
+        FROM task_assignments ta2 JOIN employees e2 ON e2.id = ta2.employee_id
+        WHERE ta2.task_id = t.id AND ta2.employee_id <> $1) AS other_assignees
+     FROM task_assignments ta
+     JOIN tasks t ON t.id = ta.task_id
+     WHERE ta.employee_id = $1
+     ORDER BY t.created_at`,
     [employeeId]
   );
-  return rows.map((t) => ({ id: t.id, title: t.title, due: t.due, progress: t.progress }));
+  return rows.map((t) => ({
+    id: t.task_id,
+    assignmentId: t.assignment_id,
+    title: t.title,
+    due: t.due,
+    level: t.level,
+    done: t.done,
+    axisGroup: t.axis_group,
+    axisIndex: t.axis_index,
+    otherAssignees: t.other_assignees || [],
+  }));
+}
+
+async function fetchWorkload(employeeId) {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(CASE t.level WHEN 'ง่าย' THEN 1 WHEN 'กลาง' THEN 2 WHEN 'ยาก' THEN 3 ELSE 2 END), 0)::int AS workload
+     FROM task_assignments ta JOIN tasks t ON t.id = ta.task_id
+     WHERE ta.employee_id = $1 AND ta.done = false`,
+    [employeeId]
+  );
+  return rows[0].workload;
 }
 
 async function fetchStations() {
@@ -51,6 +78,7 @@ async function serialize(row) {
   const g2Values = row.g2;
   const stValues = row.st || {};
   const tasks = await fetchTasks(row.id);
+  const workload = await fetchWorkload(row.id);
   const used = await fetchLeaveUsed(row.id);
   const stations = await fetchStations();
 
@@ -71,6 +99,7 @@ async function serialize(row) {
     pass: passOf(g1Values, g2Values),
     avg: avgOf([...g1Values, ...g2Values]),
     tasks,
+    workload,
     leave: {
       vacation: { quota: row.leave_quota_vacation, used: used.vacation },
       sick: { quota: row.leave_quota_sick, used: used.sick },

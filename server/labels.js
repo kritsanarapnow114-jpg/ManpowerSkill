@@ -2,20 +2,21 @@
 "use strict";
 
 const G1_AXES = [
-  { th: "การตรวจจับของเสีย", en: "Defect detection" },
+  { th: "คุณภาพงาน", en: "Defect detection" },
   { th: "การปฏิบัติตาม process", en: "Process compliance" },
   { th: "การทำงานตามเวลาที่กำหนด", en: "Cycle time" },
-  { th: "Feeling judgment", en: "Feeling judgment" },
-  { th: "Basic standard", en: "Basic standard" },
+  { th: "ความถูกต้องของงาน", en: "Feeling judgment" },
+  { th: "ประสิทธิภาพ", en: "Basic standard" },
   { th: "ความปลอดภัย 5ส", en: "Safety 5S" },
 ];
 
 const G2_AXES = [
-  { th: "Visual inspection", en: "Visual inspection" },
-  { th: "Torque check", en: "Torque check" },
-  { th: "Assembly fit", en: "Assembly fit" },
-  { th: "Function test", en: "Function test" },
-  { th: "Final check", en: "Final check" },
+  { th: "Warehouse Operation", en: "Warehouse Operation" },
+  { th: "Forklift Operation", en: "Forklift Operation" },
+  { th: "Packing Line Operation", en: "Packing Line Operation" },
+  { th: "Quality Control", en: "Quality Control" },
+  { th: "System & Documentation", en: "System & Documentation" },
+  { th: "Safety & Problem Solving", en: "Safety & Problem Solving" },
 ];
 
 const STATIONS = [
@@ -44,4 +45,12 @@ const LEAVE_TYPE_KEYS = { "ลาพักร้อน": "vacation", "ลาป�
 
 const DEFAULT_LEAVE_QUOTA = { vacation: 10, sick: 30, personal: 6 };
 
-module.exports = { G1_AXES, G2_AXES, STATIONS, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA };
+const TASK_LEVELS = ["ง่าย", "กลาง", "ยาก"];
+const TASK_LEVEL_WEIGHT = { "ง่าย": 1, "กลาง": 2, "ยาก": 3 };
+// Points a linked skill axis moves by when a task assignment is marked done/undone.
+const TASK_SKILL_BUMP = 5;
+
+module.exports = {
+  G1_AXES, G2_AXES, STATIONS, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA,
+  TASK_LEVELS, TASK_LEVEL_WEIGHT, TASK_SKILL_BUMP,
+};

@@ -5,7 +5,7 @@ export function renderList({ employees }) {
     const avgG1 = avgOf(e.g1.map((a) => a.v));
     const avgG2 = avgOf(e.g2.map((a) => a.v));
     const stnQualified = e.st.filter((s) => s.v >= 80).length;
-    const tasksDone = e.tasks.filter((t) => t.progress >= 100).length;
+    const tasksDone = e.tasks.filter((t) => t.done).length;
 
     const photo = e.photo
       ? `<img class="player-card-photo" src="${escapeHtml(e.photo)}" alt="">`

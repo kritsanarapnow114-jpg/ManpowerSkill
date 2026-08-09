@@ -76,7 +76,12 @@ export function escapeHtml(s) {
 
 export function taskPct(tasks) {
   if (!tasks || !tasks.length) return 0;
-  return avgOf(tasks.map((t) => clamp(t.progress)));
+  const done = tasks.filter((t) => t.done).length;
+  return Math.round((done / tasks.length) * 100);
+}
+
+export function taskLevelColor(level) {
+  return level === "ยาก" ? "#dc2626" : level === "กลาง" ? "#e0902e" : "#16a34a";
 }
 
 function driveFileId(url) {

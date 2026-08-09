@@ -49,7 +49,7 @@ export function renderDetail({ emp, certificates = [] }) {
   const radar2 = radarSVG(emp.g2.map((a) => ({ label: a.th, v: a.v })), "#d99a17", "rgba(217,154,23,.26)");
 
   const empTaskTotal = emp.tasks.length;
-  const empTaskDone = emp.tasks.filter((t) => t.progress >= 100).length;
+  const empTaskDone = emp.tasks.filter((t) => t.done).length;
   const empTaskPctVal = taskPct(emp.tasks);
 
   const certStatuses = certificates.map((c) => certStatus(c.expiry));
@@ -119,7 +119,7 @@ export function renderDetail({ emp, certificates = [] }) {
             </div>
             <div class="task-summary-value">
               <span class="num">${empTaskPctVal}<span>%</span></span>
-              <span class="count">${empTaskDone}/${empTaskTotal} งานเสร็จ</span>
+              <span class="count">${empTaskDone}/${empTaskTotal} งานเสร็จ · Workload ${emp.workload}</span>
             </div>
             <div class="task-summary-track"><div class="task-summary-fill" style="width:${empTaskPctVal}%"></div></div>
           </div>

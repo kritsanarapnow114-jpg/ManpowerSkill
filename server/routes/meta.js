@@ -2,7 +2,7 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
-const { G1_AXES, G2_AXES, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, DEFAULT_LEAVE_QUOTA } = require("../labels");
+const { G1_AXES, G2_AXES, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, DEFAULT_LEAVE_QUOTA, TASK_LEVELS } = require("../labels");
 
 const router = express.Router();
 
@@ -23,6 +23,7 @@ router.get("/", async (req, res, next) => {
       stations,
       positions,
       levels: LEVELS,
+      taskLevels: TASK_LEVELS,
       genders: GENDERS,
       attendanceTypes: ATTENDANCE_TYPES,
       defaultLeaveQuota: DEFAULT_LEAVE_QUOTA,

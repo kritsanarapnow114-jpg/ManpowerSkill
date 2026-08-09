@@ -46,11 +46,23 @@ const SCHEMA_SQL = `
 
   CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
-    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     due TEXT NOT NULL DEFAULT '',
-    progress INTEGER NOT NULL DEFAULT 0,
+    level TEXT NOT NULL DEFAULT 'กลาง',
+    axis_group TEXT,
+    axis_index INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'กลาง';
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS axis_group TEXT;
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS axis_index INTEGER;
+
+  CREATE TABLE IF NOT EXISTS task_assignments (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    done BOOLEAN NOT NULL DEFAULT false
   );
 
   CREATE TABLE IF NOT EXISTS attendance (
@@ -82,28 +94,28 @@ const SCHEMA_SQL = `
 
 const SEED_EMPLOYEES = [
   ["E1", "นายอภิเดช สุขดี", "MR. APIDACH SUKDEE", "ชาย", "Senior Assembly Operator", "Advance", "EMP-1042", "2019",
-    [100, 100, 87, 91, 100, 100], [94, 94, 76, 94, 94], [95, 88, 100, 92, 70, 100, 85, 90, 78, 95],
+    [100, 100, 87, 91, 100, 100], [0, 0, 0, 0, 0, 0], [95, 88, 100, 92, 70, 100, 85, 90, 78, 95],
     "8/12", "3/15", "0/30", "1/30"],
   ["E2", "นางสาวมนัสนันท์ ใจดี", "MS. MANATNAN JAIDEE", "หญิง", "QC Inspector", "Expert", "EMP-0871", "2016",
-    [100, 100, 100, 96, 100, 100], [100, 98, 92, 100, 96], [80, 75, 95, 90, 88, 100, 80, 95, 96, 100],
+    [100, 100, 100, 96, 100, 100], [0, 0, 0, 0, 0, 0], [80, 75, 95, 90, 88, 100, 80, 95, 96, 100],
     "11/12", "12/15", "0/30", "0/30"],
   ["E3", "นายกฤษณะ วงศ์ทอง", "MR. KRITSANA WONGTHONG", "ชาย", "Assembly Operator", "Basic", "EMP-1120", "2023",
-    [85, 70, 72, 64, 90, 80], [70, 68, 60, 72, 66], [60, 40, 75, 68, 30, 55, 70, 50, 45, 58],
+    [85, 70, 72, 64, 90, 80], [0, 0, 0, 0, 0, 0], [60, 40, 75, 68, 30, 55, 70, 50, 45, 58],
     "5/12", "0/15", "2/30", "3/30"],
   ["E4", "นางสาวปวีณา แสงจันทร์", "MS. PAWEENA SANGCHAN", "หญิง", "Line Leader", "Expert", "EMP-0654", "2014",
-    [100, 100, 98, 100, 100, 100], [98, 100, 90, 96, 100], [92, 90, 100, 98, 85, 100, 90, 96, 94, 100],
+    [100, 100, 98, 100, 100, 100], [0, 0, 0, 0, 0, 0], [92, 90, 100, 98, 85, 100, 90, 96, 94, 100],
     "12/12", "10/15", "0/30", "0/30"],
   ["E5", "นายธนากร รักงาน", "MR. THANAKORN RAKNGAN", "ชาย", "Assembly Operator", "Advance", "EMP-1005", "2020",
-    [95, 92, 88, 84, 96, 90], [90, 88, 80, 86, 90], [85, 80, 92, 88, 72, 90, 84, 88, 76, 90],
+    [95, 92, 88, 84, 96, 90], [0, 0, 0, 0, 0, 0], [85, 80, 92, 88, 72, 90, 84, 88, 76, 90],
     "9/12", "4/15", "1/30", "1/30"],
   ["E6", "นางสาวศิริพร มั่นคง", "MS. SIRIPORN MANKONG", "หญิง", "QC Inspector", "Advance", "EMP-0990", "2021",
-    [92, 96, 85, 88, 94, 92], [92, 90, 82, 90, 88], [70, 65, 90, 86, 80, 96, 78, 90, 88, 92],
+    [92, 96, 85, 88, 94, 92], [0, 0, 0, 0, 0, 0], [70, 65, 90, 86, 80, 96, 78, 90, 88, 92],
     "7/12", "8/15", "0/30", "1/30"],
   ["E7", "นายวิชัย ตั้งใจ", "MR. WICHAI TANGJAI", "ชาย", "Assembly Operator", "Basic", "EMP-1201", "2024",
-    [78, 62, 66, 58, 84, 74], [64, 60, 55, 66, 62], [50, 35, 66, 60, 25, 48, 62, 44, 40, 52],
+    [78, 62, 66, 58, 84, 74], [0, 0, 0, 0, 0, 0], [50, 35, 66, 60, 25, 48, 62, 44, 40, 52],
     "4/12", "0/15", "3/30", "4/30"],
   ["E8", "นางสาวจิราภา ดวงแก้ว", "MS. JIRAPA DUANGKAEW", "หญิง", "Senior Assembly Operator", "Advance", "EMP-0888", "2018",
-    [98, 94, 90, 88, 98, 96], [92, 94, 84, 90, 92], [88, 84, 96, 92, 78, 94, 86, 92, 82, 94],
+    [98, 94, 90, 88, 98, 96], [0, 0, 0, 0, 0, 0], [88, 84, 96, 92, 78, 94, 86, 92, 82, 94],
     "10/12", "6/15", "0/30", "0/30"],
 ];
 
@@ -168,6 +180,33 @@ async function ensureSchema() {
       }
     }
 
+    // One-time migration: %Skill judgment axes were replaced with a different, unrelated set of
+    // categories, so old scores can't carry over — reset g2 to zeros sized to the new axis count.
+    const { rows: g2Rows } = await client.query("SELECT id, g2 FROM employees");
+    for (const row of g2Rows) {
+      if (!Array.isArray(row.g2) || row.g2.length !== G2_AXES.length) {
+        await client.query("UPDATE employees SET g2 = $1 WHERE id = $2", [JSON.stringify(G2_AXES.map(() => 0)), row.id]);
+      }
+    }
+
+    // One-time migration: tasks used to belong to exactly one employee (employee_id + progress%);
+    // they're now shared via task_assignments so a task can have multiple assignees, each with
+    // their own done flag.
+    const { rows: taskColCheck } = await client.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'employee_id'"
+    );
+    if (taskColCheck.length) {
+      const { rows: oldTasks } = await client.query("SELECT id, employee_id, progress FROM tasks");
+      for (const t of oldTasks) {
+        await client.query(
+          "INSERT INTO task_assignments (id, task_id, employee_id, done) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING",
+          ["TA" + t.id, t.id, t.employee_id, t.progress >= 100]
+        );
+      }
+      await client.query("ALTER TABLE tasks DROP COLUMN IF EXISTS employee_id");
+      await client.query("ALTER TABLE tasks DROP COLUMN IF EXISTS progress");
+    }
+
     const { rows } = await client.query("SELECT COUNT(*)::int AS count FROM employees");
     if (rows[0].count > 0) return;
 
@@ -187,8 +226,12 @@ async function ensureSchema() {
         );
         for (const t of SEED_TASKS[id] || []) {
           await client.query(
-            "INSERT INTO tasks (id, employee_id, title, due, progress) VALUES ($1,$2,$3,$4,$5)",
-            [t.id, id, t.title, t.due, t.progress]
+            "INSERT INTO tasks (id, title, due, level) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING",
+            [t.id, t.title, t.due, t.level || "กลาง"]
+          );
+          await client.query(
+            "INSERT INTO task_assignments (id, task_id, employee_id, done) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING",
+            ["TA" + t.id, t.id, id, t.progress >= 100]
           );
         }
         for (const a of SEED_ATTENDANCE[id] || []) {

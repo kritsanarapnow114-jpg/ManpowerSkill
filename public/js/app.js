@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { icons } from "./icons.js";
-import { clamp, stColor, taskColor, taskBadge, escapeHtml, normalizeImageLink } from "./format.js";
+import { clamp, stColor, escapeHtml, normalizeImageLink } from "./format.js";
 import { radarSVG } from "./radar.js";
 import { renderOverview } from "./screens/overview.js";
 import { renderList } from "./screens/list.js";
@@ -23,7 +23,7 @@ const state = {
   screen: "list",
   selId: null,
   draft: null,
-  taskForm: { employeeId: null, title: "", due: "" },
+  taskForm: { employeeIds: [], title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null },
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
   stationForm: { editingId: null, code: "", name: "", image: "" },
@@ -187,17 +187,27 @@ function updateDraftStation(stationId, value) {
   if (valEl) { valEl.textContent = v + "%"; valEl.style.color = stColor(v); }
 }
 
+async function refreshEmployees() {
+  state.employees = await api.listEmployees();
+}
+
 async function addTask() {
-  const employeeId = state.taskForm.employeeId || state.selId || (state.employees[0] && state.employees[0].id);
+  const employeeIds = state.taskForm.employeeIds;
   const title = (state.taskForm.title || "").trim();
-  if (!title || !employeeId) return;
+  if (!title || !employeeIds.length) return;
   try {
-    await api.createTask({ employeeId, title, due: (state.taskForm.due || "").trim() });
-    const updated = await api.getEmployee(employeeId);
-    const idx = state.employees.findIndex((e) => e.id === employeeId);
-    if (idx >= 0) state.employees[idx] = updated;
+    const payload = { employeeIds, title, due: (state.taskForm.due || "").trim(), level: state.taskForm.level };
+    if (state.taskForm.axisGroup) {
+      payload.axisGroup = state.taskForm.axisGroup;
+      payload.axisIndex = state.taskForm.axisIndex;
+    }
+    await api.createTask(payload);
+    await refreshEmployees();
     state.taskForm.title = "";
     state.taskForm.due = "";
+    state.taskForm.employeeIds = [];
+    state.taskForm.axisGroup = "";
+    state.taskForm.axisIndex = null;
     state.error = null;
   } catch (err) {
     state.error = "มอบหมายงานไม่สำเร็จ: " + err.message;
@@ -205,40 +215,21 @@ async function addTask() {
   render();
 }
 
-function liveUpdateTaskRow(taskId, value) {
-  const v = clamp(value);
-  const color = taskColor(v);
-  const valEl = document.getElementById(`task-val-${taskId}`);
-  if (valEl) { valEl.textContent = v + "%"; valEl.style.color = color; }
-  const badgeEl = document.getElementById(`task-badge-${taskId}`);
-  if (badgeEl) {
-    badgeEl.textContent = taskBadge(v);
-    badgeEl.style.color = v >= 100 ? "#0f7a34" : color;
-    badgeEl.style.background = v >= 100 ? "#dcfce7" : "#f1f5f8";
-  }
-}
-
-async function commitTaskProgress(taskId, empId, value) {
-  const v = clamp(value);
-  const emp = state.employees.find((e) => e.id === empId);
-  if (emp) {
-    const t = emp.tasks.find((x) => x.id === taskId);
-    if (t) t.progress = v;
-  }
+async function toggleTaskDone(assignmentId, done) {
   try {
-    await api.updateTaskProgress(taskId, v);
+    await api.setTaskAssignmentDone(assignmentId, done);
+    await refreshEmployees();
     state.error = null;
   } catch (err) {
-    state.error = "บันทึกความคืบหน้าไม่สำเร็จ: " + err.message;
+    state.error = "บันทึกสถานะงานไม่สำเร็จ: " + err.message;
   }
   render();
 }
 
-async function deleteTask(taskId, empId) {
+async function deleteTask(assignmentId) {
   try {
-    await api.deleteTask(taskId);
-    const emp = state.employees.find((e) => e.id === empId);
-    if (emp) emp.tasks = emp.tasks.filter((t) => t.id !== taskId);
+    await api.deleteTaskAssignment(assignmentId);
+    await refreshEmployees();
     state.error = null;
   } catch (err) {
     state.error = "ลบงานไม่สำเร็จ: " + err.message;
@@ -411,7 +402,7 @@ function renderShell() {
   } else if (screen === "list") {
     content = renderList({ employees: state.employees });
   } else if (screen === "tasks") {
-    content = renderTasks({ employees: state.employees, taskForm: state.taskForm, showEnglish: true });
+    content = renderTasks({ employees: state.employees, taskForm: state.taskForm, meta: state.meta, showEnglish: true });
   } else if (screen === "attendance") {
     content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
   } else if (screen === "stations") {
@@ -504,8 +495,9 @@ appEl.addEventListener("click", (e) => {
   else if (action === "cancel-form") cancelForm();
   else if (action === "set-level") setDraftLevel(actionEl.dataset.level);
   else if (action === "set-gender") setDraftGender(actionEl.dataset.gender);
+  else if (action === "set-task-level") { state.taskForm.level = actionEl.dataset.level; render(); }
   else if (action === "add-task") addTask();
-  else if (action === "delete-task") deleteTask(actionEl.dataset.taskId, actionEl.dataset.empId);
+  else if (action === "delete-task") deleteTask(actionEl.dataset.assignmentId);
   else if (action === "add-attendance") addAttendance();
   else if (action === "delete-attendance") deleteAttendance(actionEl.dataset.id);
   else if (action === "edit-station") editStation(actionEl.dataset.id);
@@ -527,8 +519,6 @@ appEl.addEventListener("input", (e) => {
     updateDraftStation(t.dataset.stationId, t.value);
   } else if (t.dataset && t.dataset.slider) {
     updateDraftSlider(t.dataset.slider, parseInt(t.dataset.index, 10), t.value);
-  } else if (t.hasAttribute("data-task-slider")) {
-    liveUpdateTaskRow(t.dataset.taskId, t.value);
   } else if (t.id === "task-title-input") {
     state.taskForm.title = t.value;
   } else if (t.id === "task-due-input") {
@@ -550,10 +540,21 @@ appEl.addEventListener("input", (e) => {
 
 appEl.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.id === "task-emp-select") {
-    state.taskForm.employeeId = t.value;
-  } else if (t.hasAttribute("data-task-slider")) {
-    commitTaskProgress(t.dataset.taskId, t.dataset.empId, t.value);
+  if (t.hasAttribute("data-task-emp-check")) {
+    const ids = new Set(state.taskForm.employeeIds);
+    if (t.checked) ids.add(t.value); else ids.delete(t.value);
+    state.taskForm.employeeIds = [...ids];
+  } else if (t.hasAttribute("data-toggle-done")) {
+    toggleTaskDone(t.dataset.assignmentId, t.checked);
+  } else if (t.id === "task-axis-select") {
+    if (!t.value) {
+      state.taskForm.axisGroup = "";
+      state.taskForm.axisIndex = null;
+    } else {
+      const [group, idx] = t.value.split(":");
+      state.taskForm.axisGroup = group;
+      state.taskForm.axisIndex = parseInt(idx, 10);
+    }
   } else if (t.id === "att-emp-select") {
     state.attendanceForm.employeeId = t.value;
     render();
@@ -603,7 +604,6 @@ async function init() {
     state.attendanceRecords = attendanceRecords;
     state.certificates = certificates;
     state.selId = employees[0] ? employees[0].id : null;
-    state.taskForm.employeeId = state.selId;
     state.attendanceForm.employeeId = state.selId;
     state.certificateForm.employeeId = state.selId;
     state.loading = false;
