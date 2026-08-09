@@ -64,15 +64,15 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
     `;
   }).join("");
 
-  const taskCards = tasks.map((t) => {
+  const activeTasks = tasks.filter((t) => !t.done);
+  const historyTasks = tasks.filter((t) => t.done);
+
+  const taskCards = activeTasks.map((t) => {
     const overdue = isTaskOverdue(t.due, t.done);
     const names = t.assignees.map((a) => a.nickname || a.nameEn).join(", ");
     const avatars = t.assignees.map((a) => `<div class="avatar-sm" title="${escapeHtml(a.nameEn)}" style="background:${avatarBg(a.level)}">${escapeHtml(initials(a.nameEn))}</div>`).join("");
     return `
       <div class="task-card">
-        <label class="task-row-check">
-          <input type="checkbox" ${t.done ? "checked" : ""} data-toggle-done data-task-id="${escapeHtml(t.id)}">
-        </label>
         <div class="task-card-body">
           <div class="task-card-title">${escapeHtml(t.title)}</div>
           <div class="task-card-due" style="${overdue ? "color:#dc2626;font-weight:700" : ""}">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
@@ -83,7 +83,28 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
         ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
-        <span class="task-badge" style="color:${t.done ? "#0f7a34" : "#5a6a78"};background:${t.done ? "#dcfce7" : "#f1f5f8"}">${t.done ? "เสร็จ" : "ยังไม่เสร็จ"}</span>
+        <button class="btn-complete" data-action="complete-task" data-task-id="${escapeHtml(t.id)}">${icons.check || ""} เสร็จสิ้น</button>
+        <button class="btn-icon" title="ลบงาน" data-action="delete-task" data-task-id="${escapeHtml(t.id)}">${icons.trash}</button>
+      </div>
+    `;
+  }).join("");
+
+  const historyCards = historyTasks.map((t) => {
+    const names = t.assignees.map((a) => a.nickname || a.nameEn).join(", ");
+    const avatars = t.assignees.map((a) => `<div class="avatar-sm" title="${escapeHtml(a.nameEn)}" style="background:${avatarBg(a.level)}">${escapeHtml(initials(a.nameEn))}</div>`).join("");
+    return `
+      <div class="task-card task-card-done">
+        <div class="task-card-body">
+          <div class="task-card-title">${escapeHtml(t.title)}</div>
+          <div class="task-card-due">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
+          <div class="task-card-assignees">
+            <div class="avatar-stack">${avatars}</div>
+            <span>${t.assignees.length} คน · ${escapeHtml(names)}</span>
+          </div>
+        </div>
+        <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
+        <span class="task-badge" style="color:#0f7a34;background:#dcfce7">เสร็จแล้ว</span>
+        <button class="btn-ghost-sm" data-action="reopen-task" data-task-id="${escapeHtml(t.id)}">ย้อนกลับ</button>
         <button class="btn-icon" title="ลบงาน" data-action="delete-task" data-task-id="${escapeHtml(t.id)}">${icons.trash}</button>
       </div>
     `;
@@ -149,7 +170,12 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
         <div class="workload-chip-grid">${workloadSummary}</div>
       </div>
 
-      <div class="task-card-list">${taskCards || `<div class="task-empty" style="margin-top:16px">ยังไม่มีงานที่มอบหมาย</div>`}</div>
+      <div class="task-card-list">${taskCards || `<div class="task-empty" style="margin-top:16px">ยังไม่มีงานที่ต้องทำ</div>`}</div>
+
+      ${historyTasks.length ? `
+        <div class="section-title" style="margin:22px 0 10px">ประวัติงานที่เสร็จแล้ว <small>· History</small></div>
+        <div class="task-card-list task-history-list">${historyCards}</div>
+      ` : ""}
     </div>
   `;
 }

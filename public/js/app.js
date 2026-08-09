@@ -559,6 +559,8 @@ appEl.addEventListener("click", (e) => {
     render();
   }
   else if (action === "add-task") addTask();
+  else if (action === "complete-task") toggleTaskDone(actionEl.dataset.taskId, true);
+  else if (action === "reopen-task") toggleTaskDone(actionEl.dataset.taskId, false);
   else if (action === "delete-task") deleteTask(actionEl.dataset.taskId);
   else if (action === "add-attendance") addAttendance();
   else if (action === "delete-attendance") deleteAttendance(actionEl.dataset.id);
@@ -612,9 +614,7 @@ appEl.addEventListener("input", (e) => {
 
 appEl.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.hasAttribute("data-toggle-done")) {
-    toggleTaskDone(t.dataset.taskId, t.checked);
-  } else if (t.id === "task-axis-select") {
+  if (t.id === "task-axis-select") {
     if (!t.value) {
       state.taskForm.axisGroup = "";
       state.taskForm.axisIndex = null;
