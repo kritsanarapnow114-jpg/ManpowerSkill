@@ -21,6 +21,24 @@ export function stColor(pct) {
   return pct >= 90 ? "#16a34a" : pct >= 75 ? "#0c7f93" : pct >= 60 ? "#e0902e" : "#dc2626";
 }
 
+// Station proficiency tiers, mirrors server/labels.js STATION_LEVELS.
+export const STATION_LEVELS = [
+  { key: "none", en: "None", min: 0 },
+  { key: "basic", en: "Basic", min: 40 },
+  { key: "skilled", en: "Skilled", min: 120 },
+  { key: "expert", en: "Expert", min: 300 },
+];
+
+export function stationLevelOf(hours) {
+  let level = STATION_LEVELS[0];
+  for (const l of STATION_LEVELS) if (hours >= l.min) level = l;
+  return level;
+}
+
+export function stationLevelColor(key) {
+  return key === "expert" ? "#16a34a" : key === "skilled" ? "#0c7f93" : key === "basic" ? "#e0902e" : "#94a3b8";
+}
+
 export function avatarBg(level) {
   return level === "Expert"
     ? "linear-gradient(135deg,#8b5bd0,#5a2f95)"

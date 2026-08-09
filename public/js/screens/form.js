@@ -1,4 +1,4 @@
-import { lvlColor, stColor, escapeHtml } from "../format.js";
+import { lvlColor, escapeHtml, stationLevelOf, stationLevelColor } from "../format.js";
 import { radarSVG } from "../radar.js";
 
 export function renderForm({ draft, meta }) {
@@ -20,6 +20,8 @@ export function renderForm({ draft, meta }) {
 
   const stSliders = meta.stations.map((station) => {
     const v = draft.st[station.id] ?? 0;
+    const level = stationLevelOf(v);
+    const color = stationLevelColor(level.key);
     const thumb = station.image
       ? `<img class="station-form-thumb" src="${escapeHtml(station.image)}" alt="">`
       : `<span class="station-form-thumb station-form-thumb-empty"></span>`;
@@ -27,8 +29,9 @@ export function renderForm({ draft, meta }) {
       <div class="station-form-row">
         ${thumb}
         <span class="slider-label">${escapeHtml(station.name)}</span>
-        <input type="range" min="0" max="100" value="${v}" data-slider="st" data-station-id="${escapeHtml(station.id)}">
-        <span class="slider-value" id="slider-val-st-${escapeHtml(station.id)}" style="color:${stColor(v)}">${v}%</span>
+        <input type="number" min="0" step="1" class="field-input station-hours-input" value="${v}" data-slider="st" data-station-id="${escapeHtml(station.id)}">
+        <span style="font-size:12px;color:#8494a1">ชม.</span>
+        <span class="station-level-badge" id="slider-val-st-${escapeHtml(station.id)}" style="color:${color};background:${color}1a">${escapeHtml(level.en)}</span>
       </div>
     `;
   }).join("");

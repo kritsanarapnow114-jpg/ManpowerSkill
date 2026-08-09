@@ -50,7 +50,16 @@ const TASK_LEVEL_WEIGHT = { "ง่าย": 1, "กลาง": 2, "ยาก": 3
 // Points a linked skill axis moves by when a task assignment is marked done/undone.
 const TASK_SKILL_BUMP = 5;
 
+// Station proficiency is measured in accumulated work hours, mapped to one of these tiers.
+// Same thresholds apply to every station.
+const STATION_LEVELS = [
+  { key: "none", en: "None", min: 0 },
+  { key: "basic", en: "Basic", min: 40 },
+  { key: "skilled", en: "Skilled", min: 120 },
+  { key: "expert", en: "Expert", min: 300 },
+];
+
 module.exports = {
   G1_AXES, G2_AXES, STATIONS, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA,
-  TASK_LEVELS, TASK_LEVEL_WEIGHT, TASK_SKILL_BUMP,
+  TASK_LEVELS, TASK_LEVEL_WEIGHT, TASK_SKILL_BUMP, STATION_LEVELS,
 };

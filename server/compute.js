@@ -1,9 +1,17 @@
 "use strict";
 
+const { STATION_LEVELS } = require("./labels");
+
 function clamp(v) {
   v = parseInt(v, 10);
   if (Number.isNaN(v)) v = 0;
   return Math.max(0, Math.min(100, v));
+}
+
+function clampHours(v) {
+  v = parseInt(v, 10);
+  if (Number.isNaN(v) || v < 0) v = 0;
+  return v;
 }
 
 function avgOf(values) {
@@ -15,4 +23,10 @@ function passOf(g1, g2) {
   return avgOf([...g1, ...g2]);
 }
 
-module.exports = { clamp, avgOf, passOf };
+function stationLevelOf(hours) {
+  let level = STATION_LEVELS[0];
+  for (const l of STATION_LEVELS) if (hours >= l.min) level = l;
+  return level;
+}
+
+module.exports = { clamp, clampHours, avgOf, passOf, stationLevelOf };

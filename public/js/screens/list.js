@@ -4,7 +4,7 @@ export function renderList({ employees }) {
   const cards = employees.map((e) => {
     const avgG1 = avgOf(e.g1.map((a) => a.v));
     const avgG2 = avgOf(e.g2.map((a) => a.v));
-    const stnQualified = e.st.filter((s) => s.v >= 80).length;
+    const stnQualified = e.st.filter((s) => s.level === "skilled" || s.level === "expert").length;
     const tasksDone = e.tasks.filter((t) => t.done).length;
 
     const photo = e.photo
@@ -48,7 +48,7 @@ export function renderList({ employees }) {
               <div class="player-card-back-stat-row"><span>Advance standard</span><b style="color:#2f8fd0">${avgG1}%</b></div>
               <div class="player-card-back-stat-row"><span>Skill judgment</span><b style="color:#c78912">${avgG2}%</b></div>
               <div class="player-card-back-stat-row"><span>Pass rate</span><b style="color:${passColor(e.pass)}">${e.pass}%</b></div>
-              <div class="player-card-back-stat-row"><span>สถานีที่ผ่าน (≥80%)</span><b>${stnQualified}/${e.st.length}</b></div>
+              <div class="player-card-back-stat-row"><span>สถานีที่ชำนาญ (Skilled+)</span><b>${stnQualified}/${e.st.length}</b></div>
               <div class="player-card-back-stat-row"><span>งานที่เสร็จ</span><b>${tasksDone}/${e.tasks.length}</b></div>
             </div>
             <button class="btn-edit-row player-card-back-edit" data-action="edit-emp" data-id="${escapeHtml(e.id)}">แก้ไขคะแนน →</button>

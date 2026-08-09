@@ -28,7 +28,7 @@ export function renderOverview({ employees }) {
   const stationCount = employees[0] ? employees[0].st.length : 0;
   const coverage = Array.from({ length: stationCount }, (_, i) => {
     const station = employees[0].st[i];
-    const qualified = employees.filter((e) => e.st[i].v >= 80).length;
+    const qualified = employees.filter((e) => e.st[i].level === "skilled" || e.st[i].level === "expert").length;
     const pct = employees.length ? Math.round((qualified / employees.length) * 100) : 0;
     return { name: station.name, qualified, total: employees.length, pct, color: stColor(pct) };
   });
@@ -60,7 +60,7 @@ export function renderOverview({ employees }) {
     <div class="kpi-row">${kpiHtml}</div>
     <div class="overview-grid">
       <div class="card">
-        <div class="section-title">ความครอบคลุมสถานี <small>· คนที่ผ่านเกณฑ์ ≥80%</small></div>
+        <div class="section-title">ความครอบคลุมสถานี <small>· คนที่ชำนาญ (Skilled ขึ้นไป)</small></div>
         <div class="coverage-list">${coverageHtml}</div>
       </div>
       <div class="card">

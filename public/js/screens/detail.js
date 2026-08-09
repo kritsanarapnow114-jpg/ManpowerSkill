@@ -1,4 +1,4 @@
-import { lvlColor, stColor, initials, escapeHtml, taskPct, certStatus } from "../format.js";
+import { lvlColor, initials, escapeHtml, taskPct, certStatus, stationLevelColor } from "../format.js";
 import { radarSVG } from "../radar.js";
 import { icons } from "../icons.js";
 
@@ -20,17 +20,22 @@ export function renderDetail({ emp, certificates = [], achievements = [] }) {
     `;
   }).join("");
 
-  const stationsHtml = emp.st.map((s) => `
+  const stationsHtml = emp.st.map((s) => {
+    const color = stationLevelColor(s.level);
+    const barPct = Math.min(100, Math.round((s.v / 300) * 100));
+    return `
     <div class="station-chip">
       ${s.image ? `<img class="station-chip-img" src="${escapeHtml(s.image)}" alt="">` : ""}
       <div class="station-chip-top">
-        <div class="station-tag" style="background:${stColor(s.v)}">${escapeHtml(s.code.replace("ST-", ""))}</div>
-        <span style="font-weight:800;font-size:14px;color:${stColor(s.v)}">${s.v}%</span>
+        <div class="station-tag" style="background:${color}">${escapeHtml(s.code.replace("ST-", ""))}</div>
+        <span class="station-level-badge" style="color:${color};background:${color}1a">${escapeHtml(s.levelEn)}</span>
       </div>
       <div class="station-name">${escapeHtml(s.name)}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${s.v}%;background:${stColor(s.v)}"></div></div>
+      <div class="station-hours">${s.v} ชม.</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${barPct}%;background:${color}"></div></div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   const stats = [
     { label: "ประกอบวันนี้", val: emp.stats.today, color: "#0c7f93" },

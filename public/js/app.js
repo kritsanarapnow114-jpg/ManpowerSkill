@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { icons } from "./icons.js";
-import { clamp, stColor, escapeHtml, normalizeImageLink } from "./format.js";
+import { clamp, escapeHtml, normalizeImageLink, stationLevelOf, stationLevelColor } from "./format.js";
 import { radarSVG } from "./radar.js";
 import { renderOverview } from "./screens/overview.js";
 import { renderList } from "./screens/list.js";
@@ -187,11 +187,18 @@ function updateDraftSlider(group, index, value) {
 
 function updateDraftStation(stationId, value) {
   if (!state.draft) return;
-  const v = clamp(value);
+  const n = parseInt(value, 10);
+  const v = Number.isFinite(n) && n > 0 ? n : 0;
   state.draft.st[stationId] = v;
 
   const valEl = document.getElementById(`slider-val-st-${stationId}`);
-  if (valEl) { valEl.textContent = v + "%"; valEl.style.color = stColor(v); }
+  if (valEl) {
+    const level = stationLevelOf(v);
+    const color = stationLevelColor(level.key);
+    valEl.textContent = level.en;
+    valEl.style.color = color;
+    valEl.style.background = color + "1a";
+  }
 }
 
 async function refreshEmployees() {

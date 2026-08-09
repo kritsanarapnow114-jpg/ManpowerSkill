@@ -100,6 +100,12 @@ const SCHEMA_SQL = `
     note TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+
+  -- Tracks one-off data migrations that have no reliable structural marker to guard on.
+  CREATE TABLE IF NOT EXISTS schema_flags (
+    key TEXT PRIMARY KEY,
+    done_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
 `;
 
 const SEED_EMPLOYEES = [
@@ -190,6 +196,15 @@ async function ensureSchema() {
       }
     }
 
+    // One-time migration: station proficiency (st) used to be a 0-100 "skill %" per station;
+    // it's now accumulated work hours mapped to a None/Basic/Skilled/Expert tier, so old
+    // percentage values can't carry over — reset everyone's station values to 0 hours.
+    const stHoursFlag = await client.query("SELECT 1 FROM schema_flags WHERE key = 'st_hours_reset'");
+    if (stHoursFlag.rows.length === 0) {
+      await client.query("UPDATE employees SET st = '{}'::jsonb");
+      await client.query("INSERT INTO schema_flags (key) VALUES ('st_hours_reset') ON CONFLICT DO NOTHING");
+    }
+
     // One-time migration: %Skill judgment axes were replaced with a different, unrelated set of
     // categories, so old scores can't carry over — reset g2 to zeros sized to the new axis count.
     const { rows: g2Rows } = await client.query("SELECT id, g2 FROM employees");
@@ -228,7 +243,8 @@ async function ensureSchema() {
           throw new Error(`Seed data for ${id} has mismatched axis/station counts`);
         }
         const stObj = {};
-        stationIds.forEach((sid, i) => { stObj[sid] = st[i]; });
+        // Seed data historically stored 0-100 proficiency percentages; scale to plausible work hours.
+        stationIds.forEach((sid, i) => { stObj[sid] = Math.round(st[i] * 3.2); });
         await client.query(
           `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,

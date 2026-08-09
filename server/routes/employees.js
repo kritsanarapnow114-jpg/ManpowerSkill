@@ -3,7 +3,7 @@
 const express = require("express");
 const { pool, ready } = require("../db");
 const { G1_AXES, G2_AXES, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
-const { clamp, avgOf, passOf } = require("../compute");
+const { clamp, clampHours, avgOf, passOf, stationLevelOf } = require("../compute");
 
 const router = express.Router();
 
@@ -95,7 +95,11 @@ async function serialize(row) {
     join: row.join_year,
     g1: G1_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
     g2: G2_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
-    st: stations.map((s) => ({ id: s.id, code: s.code, name: s.name, image: s.image, v: stValues[s.id] ?? 0 })),
+    st: stations.map((s) => {
+      const hours = stValues[s.id] ?? 0;
+      const level = stationLevelOf(hours);
+      return { id: s.id, code: s.code, name: s.name, image: s.image, v: hours, level: level.key, levelEn: level.en };
+    }),
     stats: { today: row.stat_today, qc: row.stat_qc, rework: row.stat_rework, defect: row.stat_defect },
     pass: passOf(g1Values, g2Values),
     avg: avgOf([...g1Values, ...g2Values]),
@@ -162,10 +166,10 @@ function validateBody(body, { partial } = {}) {
   }
   if (need("st")) {
     if (typeof body.st !== "object" || body.st === null || Array.isArray(body.st)) {
-      errors.push("st must be an object of station scores keyed by station id");
+      errors.push("st must be an object of station work-hours keyed by station id");
     } else {
       out.st = {};
-      for (const [stationId, v] of Object.entries(body.st)) out.st[stationId] = clamp(v);
+      for (const [stationId, v] of Object.entries(body.st)) out.st[stationId] = clampHours(v);
     }
   }
   if (need("leaveQuota")) {
