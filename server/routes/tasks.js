@@ -15,6 +15,37 @@ router.use(async (req, res, next) => {
   }
 });
 
+async function applySkillBump(employeeId, axisGroup, axisIndex, delta) {
+  if (axisGroup !== "g1" && axisGroup !== "g2") return;
+  const empRes = await pool.query(`SELECT ${axisGroup} FROM employees WHERE id = $1`, [employeeId]);
+  const arr = empRes.rows[0] && empRes.rows[0][axisGroup];
+  if (!Array.isArray(arr) || axisIndex < 0 || axisIndex >= arr.length) return;
+  const next = arr.slice();
+  next[axisIndex] = Math.max(0, Math.min(100, (next[axisIndex] || 0) + delta));
+  await pool.query(`UPDATE employees SET ${axisGroup} = $1 WHERE id = $2`, [JSON.stringify(next), employeeId]);
+}
+
+router.get("/", async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT t.id, t.title, t.due, t.level, t.axis_group, t.axis_index,
+         COALESCE(bool_and(ta.done), false) AS done,
+         COALESCE(json_agg(json_build_object('id', e.id, 'nameEn', e.name_en, 'name', e.name, 'nickname', e.nickname, 'empCode', e.emp_code, 'level', e.level) ORDER BY e.emp_code), '[]') AS assignees
+       FROM tasks t
+       JOIN task_assignments ta ON ta.task_id = t.id
+       JOIN employees e ON e.id = ta.employee_id
+       GROUP BY t.id
+       ORDER BY t.created_at DESC`
+    );
+    res.json(rows.map((r) => ({
+      id: r.id, title: r.title, due: r.due, level: r.level,
+      axisGroup: r.axis_group, axisIndex: r.axis_index, done: r.done, assignees: r.assignees,
+    })));
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post("/", async (req, res, next) => {
   try {
     const { employeeIds, title, due, level, axisGroup, axisIndex } = req.body || {};
@@ -53,50 +84,33 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-router.patch("/assignments/:id", async (req, res, next) => {
+// Marks the whole task done/not-done for every assignee at once.
+router.patch("/:id", async (req, res, next) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT ta.id, ta.employee_id, ta.done, t.axis_group, t.axis_index
-       FROM task_assignments ta JOIN tasks t ON t.id = ta.task_id
-       WHERE ta.id = $1`,
-      [req.params.id]
-    );
-    const assignment = rows[0];
-    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+    const task = await pool.query("SELECT * FROM tasks WHERE id = $1", [req.params.id]);
+    if (!task.rows[0]) return res.status(404).json({ error: "Task not found" });
     if (!req.body || typeof req.body.done !== "boolean") return res.status(400).json({ error: "done must be a boolean" });
 
     const newDone = req.body.done;
-    if (newDone !== assignment.done) {
-      await pool.query("UPDATE task_assignments SET done = $1 WHERE id = $2", [newDone, req.params.id]);
+    const { axis_group: axisGroup, axis_index: axisIndex } = task.rows[0];
+    const { rows: assignments } = await pool.query("SELECT id, employee_id, done FROM task_assignments WHERE task_id = $1", [req.params.id]);
 
-      if (assignment.axis_group === "g1" || assignment.axis_group === "g2") {
-        const col = assignment.axis_group;
-        const delta = newDone ? TASK_SKILL_BUMP : -TASK_SKILL_BUMP;
-        const empRes = await pool.query(`SELECT ${col} FROM employees WHERE id = $1`, [assignment.employee_id]);
-        const arr = empRes.rows[0] && empRes.rows[0][col];
-        if (Array.isArray(arr) && assignment.axis_index >= 0 && assignment.axis_index < arr.length) {
-          const next = arr.slice();
-          next[assignment.axis_index] = Math.max(0, Math.min(100, (next[assignment.axis_index] || 0) + delta));
-          await pool.query(`UPDATE employees SET ${col} = $1 WHERE id = $2`, [JSON.stringify(next), assignment.employee_id]);
-        }
-      }
+    const delta = newDone ? TASK_SKILL_BUMP : -TASK_SKILL_BUMP;
+    for (const a of assignments) {
+      if (a.done === newDone) continue;
+      await pool.query("UPDATE task_assignments SET done = $1 WHERE id = $2", [newDone, a.id]);
+      await applySkillBump(a.employee_id, axisGroup, axisIndex, delta);
     }
-    res.json({ id: assignment.id, done: newDone });
+    res.json({ id: req.params.id, done: newDone });
   } catch (err) {
     next(err);
   }
 });
 
-router.delete("/assignments/:id", async (req, res, next) => {
+router.delete("/:id", async (req, res, next) => {
   try {
-    const { rows } = await pool.query("SELECT task_id FROM task_assignments WHERE id = $1", [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: "Assignment not found" });
-    const taskId = rows[0].task_id;
-
-    await pool.query("DELETE FROM task_assignments WHERE id = $1", [req.params.id]);
-    const remaining = await pool.query("SELECT COUNT(*)::int AS n FROM task_assignments WHERE task_id = $1", [taskId]);
-    if (remaining.rows[0].n === 0) await pool.query("DELETE FROM tasks WHERE id = $1", [taskId]);
-
+    const result = await pool.query("DELETE FROM tasks WHERE id = $1", [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Task not found" });
     res.status(204).end();
   } catch (err) {
     next(err);

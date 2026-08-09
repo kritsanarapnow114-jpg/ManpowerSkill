@@ -23,13 +23,10 @@ export function renderEmpSuggestionItems(employees, query, excludeIds) {
   `).join("");
 }
 
-export function renderTasks({ employees, taskForm, meta, showEnglish }) {
-  let tkAll = 0, tkDone = 0, tkOverdue = 0;
-  employees.forEach((e) => e.tasks.forEach((t) => {
-    tkAll++;
-    if (t.done) tkDone++;
-    if (isTaskOverdue(t.due, t.done)) tkOverdue++;
-  }));
+export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
+  const tkAll = tasks.length;
+  const tkDone = tasks.filter((t) => t.done).length;
+  const tkOverdue = tasks.filter((t) => isTaskOverdue(t.due, t.done)).length;
   const totalWorkload = employees.reduce((s, e) => s + e.workload, 0);
 
   const empById = Object.fromEntries(employees.map((e) => [e.id, e]));
@@ -51,49 +48,43 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
     .concat(meta.g2Axes.map((a, i) => `<option value="g2:${i}" ${taskForm.axisGroup === "g2" && taskForm.axisIndex === i ? "selected" : ""}>Skill · ${escapeHtml(a.en)}</option>`))
     .join("");
 
-  const groups = employees.map((e) => {
+  const workloadSummary = employees.map((e) => {
     const pct = taskPct(e.tasks);
-    const pctColor = taskColor(pct);
-    const rows = e.tasks.map((t) => {
-      const withOthers = t.otherAssignees.length ? ` <span class="task-row-shared">(ร่วมกับ ${escapeHtml(t.otherAssignees.join(", "))})</span>` : "";
-      const overdue = isTaskOverdue(t.due, t.done);
-      return `
-        <div class="task-row">
-          <label class="task-row-check">
-            <input type="checkbox" ${t.done ? "checked" : ""} data-toggle-done data-assignment-id="${escapeHtml(t.assignmentId)}">
-          </label>
-          <div class="task-row-info">
-            <div class="task-row-title">${escapeHtml(t.title)}${withOthers}</div>
-            <div class="task-row-due" style="${overdue ? "color:#dc2626;font-weight:700" : ""}">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
-          </div>
-          <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
-          ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
-          <span class="task-badge" style="color:${t.done ? "#0f7a34" : "#5a6a78"};background:${t.done ? "#dcfce7" : "#f1f5f8"}">${t.done ? "เสร็จ" : "ยังไม่เสร็จ"}</span>
-          <button class="btn-icon" title="ลบงาน" data-action="delete-task" data-assignment-id="${escapeHtml(t.assignmentId)}">${icons.trash}</button>
-        </div>
-      `;
-    }).join("");
-
     return `
-      <div class="card" style="padding:18px 22px">
-        <div class="task-group-head">
-          <div class="avatar-md" style="background:${avatarBg(e.level)}">${escapeHtml(initials(e.nameEn))}</div>
-          <div class="task-group-info">
-            <div class="task-group-name">${escapeHtml(e.nameEn)}</div>
-            <div class="task-group-sub">${escapeHtml(e.name)} · ${escapeHtml(e.position)}</div>
-          </div>
-          <div class="task-group-pct-label">
-            <div class="lbl">Workload</div>
-            <div class="val" style="color:${e.workload >= 6 ? "#dc2626" : e.workload >= 3 ? "#e0902e" : "#16a34a"}">${e.workload}</div>
-          </div>
-          <div class="task-group-pct-label">
-            <div class="lbl">เสร็จแล้ว</div>
-            <div class="val" style="color:${pctColor}">${pct}%</div>
+      <div class="workload-chip">
+        <div class="avatar-sm" style="background:${avatarBg(e.level)}">${escapeHtml(initials(e.nameEn))}</div>
+        <div class="workload-chip-info">
+          <div class="workload-chip-name">${escapeHtml(e.nickname || e.nameEn)}</div>
+          <div class="workload-chip-meta">
+            Workload <b style="color:${e.workload >= 6 ? "#dc2626" : e.workload >= 3 ? "#e0902e" : "#16a34a"}">${e.workload}</b>
+            · เสร็จ <b style="color:${taskColor(pct)}">${pct}%</b>
           </div>
         </div>
-        ${e.tasks.length
-          ? `<div class="task-list">${rows}</div>`
-          : `<div class="task-empty">ยังไม่มีงานที่มอบหมาย</div>`}
+      </div>
+    `;
+  }).join("");
+
+  const taskCards = tasks.map((t) => {
+    const overdue = isTaskOverdue(t.due, t.done);
+    const names = t.assignees.map((a) => a.nickname || a.nameEn).join(", ");
+    const avatars = t.assignees.map((a) => `<div class="avatar-sm" title="${escapeHtml(a.nameEn)}" style="background:${avatarBg(a.level)}">${escapeHtml(initials(a.nameEn))}</div>`).join("");
+    return `
+      <div class="task-card">
+        <label class="task-row-check">
+          <input type="checkbox" ${t.done ? "checked" : ""} data-toggle-done data-task-id="${escapeHtml(t.id)}">
+        </label>
+        <div class="task-card-body">
+          <div class="task-card-title">${escapeHtml(t.title)}</div>
+          <div class="task-card-due" style="${overdue ? "color:#dc2626;font-weight:700" : ""}">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
+          <div class="task-card-assignees">
+            <div class="avatar-stack">${avatars}</div>
+            <span>${t.assignees.length} คน · ${escapeHtml(names)}</span>
+          </div>
+        </div>
+        <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
+        ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
+        <span class="task-badge" style="color:${t.done ? "#0f7a34" : "#5a6a78"};background:${t.done ? "#dcfce7" : "#f1f5f8"}">${t.done ? "เสร็จ" : "ยังไม่เสร็จ"}</span>
+        <button class="btn-icon" title="ลบงาน" data-action="delete-task" data-task-id="${escapeHtml(t.id)}">${icons.trash}</button>
       </div>
     `;
   }).join("");
@@ -103,7 +94,7 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
       <div class="task-kpi-row" style="grid-template-columns:repeat(4,1fr)">
         <div class="card card-sm">
           <div class="kpi-stripe" style="background:#0c7f93"></div>
-          <div class="kpi-label">งานทั้งหมด · Total assignments</div>
+          <div class="kpi-label">งานทั้งหมด · Total tasks</div>
           <div class="kpi-value">${tkAll}</div>
         </div>
         <div class="card card-sm">
@@ -153,7 +144,12 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
         </div>
       </div>
 
-      <div class="task-groups">${groups}</div>
+      <div class="card" style="padding:16px 20px">
+        <div class="section-title" style="margin-bottom:12px">Workload รายคน <small>· Per-employee workload</small></div>
+        <div class="workload-chip-grid">${workloadSummary}</div>
+      </div>
+
+      <div class="task-card-list">${taskCards || `<div class="task-empty" style="margin-top:16px">ยังไม่มีงานที่มอบหมาย</div>`}</div>
     </div>
   `;
 }

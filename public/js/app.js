@@ -21,6 +21,7 @@ function todayISO() {
 const state = {
   meta: null,
   employees: [],
+  tasks: [],
   screen: "list",
   selId: null,
   draft: null,
@@ -197,6 +198,12 @@ async function refreshEmployees() {
   state.employees = await api.listEmployees();
 }
 
+async function refreshTasks() {
+  const [tasks, employees] = await Promise.all([api.listTasks(), api.listEmployees()]);
+  state.tasks = tasks;
+  state.employees = employees;
+}
+
 async function addTask() {
   const employeeIds = state.taskForm.employeeIds;
   const title = (state.taskForm.title || "").trim();
@@ -208,7 +215,7 @@ async function addTask() {
       payload.axisIndex = state.taskForm.axisIndex;
     }
     await api.createTask(payload);
-    await refreshEmployees();
+    await refreshTasks();
     state.taskForm.title = "";
     state.taskForm.due = "";
     state.taskForm.employeeIds = [];
@@ -222,10 +229,10 @@ async function addTask() {
   render();
 }
 
-async function toggleTaskDone(assignmentId, done) {
+async function toggleTaskDone(taskId, done) {
   try {
-    await api.setTaskAssignmentDone(assignmentId, done);
-    await refreshEmployees();
+    await api.setTaskDone(taskId, done);
+    await refreshTasks();
     state.error = null;
   } catch (err) {
     state.error = "บันทึกสถานะงานไม่สำเร็จ: " + err.message;
@@ -233,10 +240,10 @@ async function toggleTaskDone(assignmentId, done) {
   render();
 }
 
-async function deleteTask(assignmentId) {
+async function deleteTask(taskId) {
   try {
-    await api.deleteTaskAssignment(assignmentId);
-    await refreshEmployees();
+    await api.deleteTask(taskId);
+    await refreshTasks();
     state.error = null;
   } catch (err) {
     state.error = "ลบงานไม่สำเร็จ: " + err.message;
@@ -441,7 +448,7 @@ function renderShell() {
   } else if (screen === "list") {
     content = renderList({ employees: state.employees });
   } else if (screen === "tasks") {
-    content = renderTasks({ employees: state.employees, taskForm: state.taskForm, meta: state.meta, showEnglish: true });
+    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true });
   } else if (screen === "attendance") {
     content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
   } else if (screen === "stations") {
@@ -552,7 +559,7 @@ appEl.addEventListener("click", (e) => {
     render();
   }
   else if (action === "add-task") addTask();
-  else if (action === "delete-task") deleteTask(actionEl.dataset.assignmentId);
+  else if (action === "delete-task") deleteTask(actionEl.dataset.taskId);
   else if (action === "add-attendance") addAttendance();
   else if (action === "delete-attendance") deleteAttendance(actionEl.dataset.id);
   else if (action === "edit-station") editStation(actionEl.dataset.id);
@@ -606,7 +613,7 @@ appEl.addEventListener("input", (e) => {
 appEl.addEventListener("change", (e) => {
   const t = e.target;
   if (t.hasAttribute("data-toggle-done")) {
-    toggleTaskDone(t.dataset.assignmentId, t.checked);
+    toggleTaskDone(t.dataset.taskId, t.checked);
   } else if (t.id === "task-axis-select") {
     if (!t.value) {
       state.taskForm.axisGroup = "";
@@ -661,11 +668,12 @@ appEl.addEventListener("change", (e) => {
 
 async function init() {
   try {
-    const [meta, employees, attendanceRecords, certificates, achievements] = await Promise.all([
-      api.getMeta(), api.listEmployees(), api.listAttendance(), api.listCertificates(), api.listAchievements(),
+    const [meta, employees, tasks, attendanceRecords, certificates, achievements] = await Promise.all([
+      api.getMeta(), api.listEmployees(), api.listTasks(), api.listAttendance(), api.listCertificates(), api.listAchievements(),
     ]);
     state.meta = meta;
     state.employees = employees;
+    state.tasks = tasks;
     state.attendanceRecords = attendanceRecords;
     state.certificates = certificates;
     state.achievements = achievements;
