@@ -84,6 +84,11 @@ export function taskLevelColor(level) {
   return level === "ยาก" ? "#dc2626" : level === "กลาง" ? "#e0902e" : "#16a34a";
 }
 
+export function isTaskOverdue(due, done) {
+  if (done || !due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) return false;
+  return due < new Date().toISOString().slice(0, 10);
+}
+
 function driveFileId(url) {
   const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (fileMatch) return fileMatch[1];

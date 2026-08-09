@@ -298,9 +298,17 @@ button { font-family: inherit; }
 .task-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .task-empty { text-align: center; color: #a3b0ba; font-size: 13px; padding: 14px 0; border: 1px dashed #dbe3e9; border-radius: 12px; }
 .task-assign-second-row { display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
-.task-emp-check-list { display: flex; flex-wrap: wrap; gap: 6px 14px; max-height: 90px; overflow-y: auto; padding: 4px 0; }
-.task-emp-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #3a4a57; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.task-emp-check input { width: 15px; height: 15px; cursor: pointer; }
+.task-emp-picker { position: relative; }
+.task-emp-suggest-list { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #e2e9ee; border-radius: 12px; box-shadow: 0 20px 40px -20px rgba(16,40,54,.35); max-height: 240px; overflow-y: auto; }
+.task-emp-suggest-list:empty { display: none; }
+.task-emp-suggest-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #f0f4f6; }
+.task-emp-suggest-item:last-child { border-bottom: none; }
+.task-emp-suggest-item:hover { background: #f5f8fa; }
+.task-emp-suggest-empty { padding: 12px; font-size: 12.5px; color: #a3b0ba; text-align: center; }
+.task-emp-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.task-emp-tag { display: inline-flex; align-items: center; gap: 6px; background: #eef2f5; color: #33434f; font-weight: 700; font-size: 12.5px; padding: 5px 6px 5px 12px; border-radius: 999px; }
+.task-emp-tag button { border: none; background: #dbe3e9; color: #5a6a78; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; font-size: 13px; line-height: 1; display: grid; place-items: center; font-family: inherit; }
+.task-emp-tag button:hover { background: #c3ccd3; }
 
 /* ---------- attendance screen ---------- */
 .attendance-row {
@@ -313,6 +321,19 @@ button { font-family: inherit; }
 .attendance-emp { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .attendance-badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-weight: 700; font-size: 12px; }
 .attendance-note { color: #5a6a78; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- achievements screen ---------- */
+.achievement-row {
+  display: grid; grid-template-columns: 110px minmax(190px,1.4fr) minmax(220px,2fr) 44px;
+  gap: 14px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f0f4f6; font-size: 13.5px;
+}
+.achievement-row:last-child { border-bottom: none; }
+.achievement-head { padding: 14px 20px; background: #f5f8fa; border-bottom: 1px solid #e6edf1; font-size: 11.5px; font-weight: 700; color: #7f8f9c; text-transform: uppercase; letter-spacing: .4px; }
+.achievement-date { font-weight: 700; color: #33434f; }
+.achievement-emp { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.achievement-body { min-width: 0; }
+.achievement-title { font-weight: 600; color: #2a3a47; }
+.achievement-note { color: #8494a1; font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .leave-balance-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .leave-balance-row { display: grid; grid-template-columns: 76px 1fr 48px; gap: 10px; align-items: center; font-size: 12.5px; }

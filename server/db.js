@@ -43,6 +43,7 @@ const SCHEMA_SQL = `
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS leave_quota_sick INTEGER NOT NULL DEFAULT 30;
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS leave_quota_personal INTEGER NOT NULL DEFAULT 6;
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo TEXT NOT NULL DEFAULT '';
+  ALTER TABLE employees ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT '';
 
   CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
@@ -88,6 +89,15 @@ const SCHEMA_SQL = `
     name TEXT NOT NULL,
     expiry TEXT NOT NULL DEFAULT '',
     image TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  CREATE TABLE IF NOT EXISTS achievements (
+    id TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    date TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
 `;

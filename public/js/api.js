@@ -37,4 +37,7 @@ export const api = {
   listCertificates: () => request("/api/certificates"),
   createCertificate: (data) => request("/api/certificates", json("POST", data)),
   deleteCertificate: (id) => request(`/api/certificates/${id}`, { method: "DELETE" }),
+  listAchievements: () => request("/api/achievements"),
+  createAchievement: (data) => request("/api/achievements", json("POST", data)),
+  deleteAchievement: (id) => request(`/api/achievements/${id}`, { method: "DELETE" }),
 };

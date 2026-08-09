@@ -86,6 +86,7 @@ async function serialize(row) {
     id: row.id,
     name: row.name,
     nameEn: row.name_en,
+    nickname: row.nickname,
     photo: row.photo,
     gender: row.gender,
     position: row.position,
@@ -121,6 +122,9 @@ function validateBody(body, { partial } = {}) {
   if (need("nameEn")) {
     if (typeof body.nameEn !== "string" || !body.nameEn.trim()) errors.push("nameEn is required");
     else out.nameEn = body.nameEn.trim();
+  }
+  if (need("nickname")) {
+    out.nickname = typeof body.nickname === "string" ? body.nickname.trim() : "";
   }
   if (need("photo")) {
     if (body.photo && (typeof body.photo !== "string" || body.photo.length > MAX_IMAGE_LENGTH)) {
@@ -210,9 +214,9 @@ router.post("/", async (req, res, next) => {
 
     const id = "E" + Date.now();
     await pool.query(
-      `INSERT INTO employees (id, name, name_en, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-      [id, out.name, out.nameEn, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
+      `INSERT INTO employees (id, name, name_en, nickname, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      [id, out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
         out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal]
@@ -234,11 +238,11 @@ router.put("/:id", async (req, res, next) => {
     if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
     await pool.query(
-      `UPDATE employees SET name=$1, name_en=$2, photo=$3, gender=$4, position=$5, level=$6, emp_code=$7,
-         join_year=$8, g1=$9, g2=$10, st=$11, stat_today=$12, stat_qc=$13, stat_rework=$14, stat_defect=$15,
-         leave_quota_vacation=$16, leave_quota_sick=$17, leave_quota_personal=$18
-       WHERE id=$19`,
-      [out.name, out.nameEn, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
+      `UPDATE employees SET name=$1, name_en=$2, nickname=$3, photo=$4, gender=$5, position=$6, level=$7, emp_code=$8,
+         join_year=$9, g1=$10, g2=$11, st=$12, stat_today=$13, stat_qc=$14, stat_rework=$15, stat_defect=$16,
+         leave_quota_vacation=$17, leave_quota_sick=$18, leave_quota_personal=$19
+       WHERE id=$20`,
+      [out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
         out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, req.params.id]

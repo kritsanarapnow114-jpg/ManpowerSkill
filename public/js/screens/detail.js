@@ -5,7 +5,7 @@ import { icons } from "../icons.js";
 const LEAVE_LABELS = { vacation: "ลาพักร้อน", sick: "ลาป่วย", personal: "ลากิจ" };
 const STATUS_RANK = { expired: 0, soon: 1, ok: 2, none: 3 };
 
-export function renderDetail({ emp, certificates = [] }) {
+export function renderDetail({ emp, certificates = [], achievements = [] }) {
   const leaveRows = Object.entries(LEAVE_LABELS).map(([key, label]) => {
     const { quota, used } = emp.leave[key];
     const remain = quota - used;
@@ -132,6 +132,17 @@ export function renderDetail({ emp, certificates = [] }) {
             <div class="task-summary-value">
               <span class="num">${certificates.length}</span>
               ${certificates.length ? `<span class="count" style="color:${worstCert.color}">${escapeHtml(worstCert.label)}</span>` : `<span class="count">ยังไม่มีใบเซอร์</span>`}
+            </div>
+          </div>
+
+          <div class="card" style="padding:16px 18px">
+            <div class="task-summary-head">
+              <div class="pass-label">ผลงาน · Achievements</div>
+              <button class="task-summary-link" data-action="go-achievements">จัดการ →</button>
+            </div>
+            <div class="task-summary-value">
+              <span class="num">${achievements.length}</span>
+              <span class="count">${achievements.length ? escapeHtml(achievements[0].title) : "ยังไม่มีบันทึกผลงาน"}</span>
             </div>
           </div>
         </div>

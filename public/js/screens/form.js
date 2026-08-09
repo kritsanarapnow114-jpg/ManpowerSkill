@@ -78,6 +78,7 @@ export function renderForm({ draft, meta }) {
         <div class="field-grid" style="margin-top:16px">
           <label class="field-label">ชื่อ (EN)<input class="field-input" value="${escapeHtml(draft.nameEn)}" data-field="nameEn"></label>
           <label class="field-label">ชื่อ (ไทย)<input class="field-input" value="${escapeHtml(draft.name)}" data-field="name"></label>
+          <label class="field-label">ชื่อเล่น<input class="field-input" value="${escapeHtml(draft.nickname)}" data-field="nickname" placeholder="เช่น ก้อง, มิว"></label>
           <label class="field-label">ตำแหน่ง
             <select class="field-input" id="position-select">
               ${meta.positions.map((p) => `<option value="${escapeHtml(p)}" ${draft.position === p ? "selected" : ""}>${escapeHtml(p)}</option>`).join("")}

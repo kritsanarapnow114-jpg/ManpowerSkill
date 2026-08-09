@@ -6,10 +6,11 @@ import { renderOverview } from "./screens/overview.js";
 import { renderList } from "./screens/list.js";
 import { renderDetail } from "./screens/detail.js";
 import { renderForm } from "./screens/form.js";
-import { renderTasks } from "./screens/tasks.js";
+import { renderTasks, renderEmpSuggestionItems } from "./screens/tasks.js";
 import { renderAttendance } from "./screens/attendance.js";
 import { renderStations } from "./screens/stations.js";
 import { renderCertificates } from "./screens/certificates.js";
+import { renderAchievements } from "./screens/achievements.js";
 
 const appEl = document.getElementById("app");
 
@@ -23,12 +24,14 @@ const state = {
   screen: "list",
   selId: null,
   draft: null,
-  taskForm: { employeeIds: [], title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null },
+  taskForm: { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null },
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
   stationForm: { editingId: null, code: "", name: "", image: "" },
   certificates: [],
   certificateForm: { employeeId: null, name: "", expiry: "", image: "" },
+  achievements: [],
+  achievementForm: { employeeId: null, title: "", date: todayISO(), note: "" },
   loading: true,
   error: null,
 };
@@ -42,6 +45,7 @@ const PAGE_MAP = {
   attendance: ["บันทึกขาดลามาสาย", "Attendance & leave records"],
   stations: ["จัดการสถานี / เครื่องจักร", "Manage stations & machine photos"],
   certificates: ["ใบเซอร์พนักงาน", "Employee certificates"],
+  achievements: ["ผลงานพนักงาน", "Employee achievements"],
 };
 
 function findEmployee(id) {
@@ -65,6 +69,7 @@ function draftFromEmployee(emp) {
     isNew: false,
     name: emp.name,
     nameEn: emp.nameEn,
+    nickname: emp.nickname || "",
     photo: emp.photo || "",
     gender: emp.gender,
     position: emp.position,
@@ -94,6 +99,7 @@ function addNew() {
     isNew: true,
     name: "พนักงานใหม่",
     nameEn: "NEW EMPLOYEE",
+    nickname: "",
     photo: "",
     gender: state.meta.genders[0],
     position: state.meta.positions[0] || "",
@@ -113,7 +119,7 @@ function addNew() {
 async function saveForm() {
   const d = state.draft;
   const payload = {
-    name: d.name, nameEn: d.nameEn, photo: d.photo, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
+    name: d.name, nameEn: d.nameEn, nickname: d.nickname, photo: d.photo, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
     leaveQuota: d.leaveQuota, g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
   };
   try {
@@ -206,6 +212,7 @@ async function addTask() {
     state.taskForm.title = "";
     state.taskForm.due = "";
     state.taskForm.employeeIds = [];
+    state.taskForm.empSearch = "";
     state.taskForm.axisGroup = "";
     state.taskForm.axisIndex = null;
     state.error = null;
@@ -389,6 +396,38 @@ async function deleteCertificate(id) {
   render();
 }
 
+async function addAchievement() {
+  const employeeId = state.achievementForm.employeeId || state.selId || (state.employees[0] && state.employees[0].id);
+  const title = (state.achievementForm.title || "").trim();
+  if (!employeeId || !title) return;
+  try {
+    const created = await api.createAchievement({
+      employeeId,
+      title,
+      date: state.achievementForm.date || "",
+      note: state.achievementForm.note || "",
+    });
+    state.achievements.unshift(created);
+    state.achievementForm.title = "";
+    state.achievementForm.note = "";
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกผลงานไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteAchievement(id) {
+  try {
+    await api.deleteAchievement(id);
+    state.achievements = state.achievements.filter((a) => a.id !== id);
+    state.error = null;
+  } catch (err) {
+    state.error = "ลบรายการไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
 function renderShell() {
   const { screen } = state;
   const isEmpScreen = screen === "list" || screen === "detail" || screen === "form";
@@ -409,6 +448,8 @@ function renderShell() {
     content = renderStations({ stations: state.meta.stations, form: state.stationForm });
   } else if (screen === "certificates") {
     content = renderCertificates({ employees: state.employees, certificates: state.certificates, form: state.certificateForm });
+  } else if (screen === "achievements") {
+    content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm });
   } else if (screen === "form" && state.draft) {
     content = renderForm({ draft: state.draft, meta: state.meta });
   } else {
@@ -416,7 +457,8 @@ function renderShell() {
     if (emp) {
       state.selId = emp.id;
       const certs = state.certificates.filter((c) => c.employeeId === emp.id);
-      content = renderDetail({ emp, certificates: certs });
+      const achievements = state.achievements.filter((a) => a.employeeId === emp.id);
+      content = renderDetail({ emp, certificates: certs, achievements });
     }
   }
 
@@ -447,6 +489,9 @@ function renderShell() {
         </button>
         <button class="nav-btn${screen === "certificates" ? " active" : ""}" data-nav="certificates">
           ${icons.certificate}<span>ใบเซอร์พนักงาน<small>Certificates</small></span>
+        </button>
+        <button class="nav-btn${screen === "achievements" ? " active" : ""}" data-nav="achievements">
+          ${icons.achievement}<span>ผลงานพนักงาน<small>Achievements</small></span>
         </button>
         <div class="sidebar-footer">
           <div class="line1">สายการประกอบ · Line A</div>
@@ -491,11 +536,21 @@ appEl.addEventListener("click", (e) => {
   else if (action === "back-to-list") go("list");
   else if (action === "go-tasks") go("tasks");
   else if (action === "go-certificates") go("certificates");
+  else if (action === "go-achievements") go("achievements");
   else if (action === "save-form") saveForm();
   else if (action === "cancel-form") cancelForm();
   else if (action === "set-level") setDraftLevel(actionEl.dataset.level);
   else if (action === "set-gender") setDraftGender(actionEl.dataset.gender);
   else if (action === "set-task-level") { state.taskForm.level = actionEl.dataset.level; render(); }
+  else if (action === "pick-task-emp") {
+    if (!state.taskForm.employeeIds.includes(actionEl.dataset.id)) state.taskForm.employeeIds.push(actionEl.dataset.id);
+    state.taskForm.empSearch = "";
+    render();
+  }
+  else if (action === "unpick-task-emp") {
+    state.taskForm.employeeIds = state.taskForm.employeeIds.filter((id) => id !== actionEl.dataset.id);
+    render();
+  }
   else if (action === "add-task") addTask();
   else if (action === "delete-task") deleteTask(actionEl.dataset.assignmentId);
   else if (action === "add-attendance") addAttendance();
@@ -506,6 +561,8 @@ appEl.addEventListener("click", (e) => {
   else if (action === "delete-station") deleteStation(actionEl.dataset.id);
   else if (action === "add-certificate") addCertificate();
   else if (action === "delete-certificate") deleteCertificate(actionEl.dataset.id);
+  else if (action === "add-achievement") addAchievement();
+  else if (action === "delete-achievement") deleteAchievement(actionEl.dataset.id);
   else if (action === "add-new") addNew();
 });
 
@@ -523,6 +580,10 @@ appEl.addEventListener("input", (e) => {
     state.taskForm.title = t.value;
   } else if (t.id === "task-due-input") {
     state.taskForm.due = t.value;
+  } else if (t.id === "task-emp-search") {
+    state.taskForm.empSearch = t.value;
+    const box = document.getElementById("task-emp-suggestions");
+    if (box) box.innerHTML = renderEmpSuggestionItems(state.employees, t.value, state.taskForm.employeeIds);
   } else if (t.id === "att-note-input") {
     state.attendanceForm.note = t.value;
   } else if (t.id === "stn-code-input") {
@@ -535,16 +596,16 @@ appEl.addEventListener("input", (e) => {
     state.certificateForm.image = normalizeImageLink(t.value.trim());
   } else if (t.id === "photo-link-input") {
     setDraftField("photo", normalizeImageLink(t.value.trim()));
+  } else if (t.id === "ach-title-input") {
+    state.achievementForm.title = t.value;
+  } else if (t.id === "ach-note-input") {
+    state.achievementForm.note = t.value;
   }
 });
 
 appEl.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.hasAttribute("data-task-emp-check")) {
-    const ids = new Set(state.taskForm.employeeIds);
-    if (t.checked) ids.add(t.value); else ids.delete(t.value);
-    state.taskForm.employeeIds = [...ids];
-  } else if (t.hasAttribute("data-toggle-done")) {
+  if (t.hasAttribute("data-toggle-done")) {
     toggleTaskDone(t.dataset.assignmentId, t.checked);
   } else if (t.id === "task-axis-select") {
     if (!t.value) {
@@ -591,21 +652,27 @@ appEl.addEventListener("change", (e) => {
     readImageFile(file, { maxDim: 400, quality: 0.82 })
       .then((dataUrl) => { setDraftField("photo", dataUrl); state.error = null; render(); })
       .catch((err) => { state.error = err.message; render(); });
+  } else if (t.id === "ach-emp-select") {
+    state.achievementForm.employeeId = t.value;
+  } else if (t.id === "ach-date-input") {
+    state.achievementForm.date = t.value;
   }
 });
 
 async function init() {
   try {
-    const [meta, employees, attendanceRecords, certificates] = await Promise.all([
-      api.getMeta(), api.listEmployees(), api.listAttendance(), api.listCertificates(),
+    const [meta, employees, attendanceRecords, certificates, achievements] = await Promise.all([
+      api.getMeta(), api.listEmployees(), api.listAttendance(), api.listCertificates(), api.listAchievements(),
     ]);
     state.meta = meta;
     state.employees = employees;
     state.attendanceRecords = attendanceRecords;
     state.certificates = certificates;
+    state.achievements = achievements;
     state.selId = employees[0] ? employees[0].id : null;
     state.attendanceForm.employeeId = state.selId;
     state.certificateForm.employeeId = state.selId;
+    state.achievementForm.employeeId = state.selId;
     state.loading = false;
   } catch (err) {
     state.loading = false;

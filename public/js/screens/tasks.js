@@ -1,20 +1,43 @@
-import { avatarBg, initials, taskColor, taskLevelColor, taskPct, escapeHtml } from "../format.js";
+import { avatarBg, initials, taskColor, taskLevelColor, taskPct, isTaskOverdue, escapeHtml } from "../format.js";
 import { icons } from "../icons.js";
 
+export function renderEmpSuggestionItems(employees, query, excludeIds) {
+  const q = (query || "").trim().toLowerCase();
+  if (!q) return "";
+  const excluded = new Set(excludeIds);
+  const matches = employees.filter((e) => !excluded.has(e.id) && (
+    e.nameEn.toLowerCase().includes(q) ||
+    e.name.toLowerCase().includes(q) ||
+    (e.nickname || "").toLowerCase().includes(q) ||
+    e.empCode.toLowerCase().includes(q)
+  )).slice(0, 8);
+  if (!matches.length) return `<div class="task-emp-suggest-empty">ไม่พบพนักงาน</div>`;
+  return matches.map((e) => `
+    <div class="task-emp-suggest-item" data-action="pick-task-emp" data-id="${escapeHtml(e.id)}">
+      <div class="avatar-sm" style="background:${avatarBg(e.level)}">${escapeHtml(initials(e.nameEn))}</div>
+      <div style="min-width:0">
+        <div class="list-name-en">${escapeHtml(e.empCode)} · ${escapeHtml(e.nameEn)}${e.nickname ? ` (${escapeHtml(e.nickname)})` : ""}</div>
+        <div class="list-name-th">${escapeHtml(e.name)}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
 export function renderTasks({ employees, taskForm, meta, showEnglish }) {
-  let tkAll = 0, tkDone = 0;
+  let tkAll = 0, tkDone = 0, tkOverdue = 0;
   employees.forEach((e) => e.tasks.forEach((t) => {
     tkAll++;
     if (t.done) tkDone++;
+    if (isTaskOverdue(t.due, t.done)) tkOverdue++;
   }));
   const totalWorkload = employees.reduce((s, e) => s + e.workload, 0);
 
-  const empCheckboxes = employees.map((e) => `
-    <label class="task-emp-check">
-      <input type="checkbox" data-task-emp-check value="${escapeHtml(e.id)}" ${taskForm.employeeIds.includes(e.id) ? "checked" : ""}>
-      <span>${escapeHtml(e.empCode + " · " + (showEnglish ? e.nameEn : e.name))}</span>
-    </label>
-  `).join("");
+  const empById = Object.fromEntries(employees.map((e) => [e.id, e]));
+  const tags = taskForm.employeeIds.map((id) => {
+    const e = empById[id];
+    if (!e) return "";
+    return `<span class="task-emp-tag">${escapeHtml(e.nickname || (showEnglish ? e.nameEn : e.name))}<button type="button" data-action="unpick-task-emp" data-id="${escapeHtml(id)}">&times;</button></span>`;
+  }).join("");
 
   const levelButtons = meta.taskLevels.map((l) => {
     const active = taskForm.level === l;
@@ -33,6 +56,7 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
     const pctColor = taskColor(pct);
     const rows = e.tasks.map((t) => {
       const withOthers = t.otherAssignees.length ? ` <span class="task-row-shared">(ร่วมกับ ${escapeHtml(t.otherAssignees.join(", "))})</span>` : "";
+      const overdue = isTaskOverdue(t.due, t.done);
       return `
         <div class="task-row">
           <label class="task-row-check">
@@ -40,9 +64,10 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
           </label>
           <div class="task-row-info">
             <div class="task-row-title">${escapeHtml(t.title)}${withOthers}</div>
-            <div class="task-row-due">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
+            <div class="task-row-due" style="${overdue ? "color:#dc2626;font-weight:700" : ""}">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
           </div>
           <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
+          ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
           <span class="task-badge" style="color:${t.done ? "#0f7a34" : "#5a6a78"};background:${t.done ? "#dcfce7" : "#f1f5f8"}">${t.done ? "เสร็จ" : "ยังไม่เสร็จ"}</span>
           <button class="btn-icon" title="ลบงาน" data-action="delete-task" data-assignment-id="${escapeHtml(t.assignmentId)}">${icons.trash}</button>
         </div>
@@ -75,7 +100,7 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
 
   return `
     <div>
-      <div class="task-kpi-row">
+      <div class="task-kpi-row" style="grid-template-columns:repeat(4,1fr)">
         <div class="card card-sm">
           <div class="kpi-stripe" style="background:#0c7f93"></div>
           <div class="kpi-label">งานทั้งหมด · Total assignments</div>
@@ -85,6 +110,11 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
           <div class="kpi-stripe" style="background:#16a34a"></div>
           <div class="kpi-label">เสร็จแล้ว · Completed</div>
           <div class="kpi-value" style="color:#16a34a">${tkDone}</div>
+        </div>
+        <div class="card card-sm">
+          <div class="kpi-stripe" style="background:#dc2626"></div>
+          <div class="kpi-label">เลยกำหนด · Overdue</div>
+          <div class="kpi-value" style="color:#dc2626">${tkOverdue}</div>
         </div>
         <div class="card card-sm">
           <div class="kpi-stripe" style="background:#7c4dbc"></div>
@@ -100,7 +130,7 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
             <input class="field-input" id="task-title-input" value="${escapeHtml(taskForm.title)}" placeholder="เช่น อบรมสถานี Torque, ประกอบ 50 ชิ้น/วัน">
           </label>
           <label class="assign-field due">กำหนดส่ง
-            <input class="field-input" id="task-due-input" value="${escapeHtml(taskForm.due)}" placeholder="15 ส.ค.">
+            <input type="date" class="field-input" id="task-due-input" value="${escapeHtml(taskForm.due)}">
           </label>
           <label class="assign-field due">ทักษะที่เกี่ยวข้อง (ถ้ามี)
             <select class="field-input" id="task-axis-select">${axisOptions}</select>
@@ -112,9 +142,13 @@ export function renderTasks({ employees, taskForm, meta, showEnglish }) {
             <div class="field-label" style="margin-bottom:8px">ระดับความยาก</div>
             <div class="level-select-row">${levelButtons}</div>
           </div>
-          <div>
-            <div class="field-label" style="margin-bottom:8px">มอบหมายให้ (เลือกได้หลายคน)</div>
-            <div class="task-emp-check-list">${empCheckboxes}</div>
+          <div style="flex:1;min-width:260px">
+            <div class="field-label" style="margin-bottom:8px">มอบหมายให้ (พิมพ์ชื่อ/ชื่อเล่น/รหัสเพื่อค้นหา)</div>
+            <div class="task-emp-picker">
+              <input type="text" class="field-input" id="task-emp-search" autocomplete="off" placeholder="พิมพ์เพื่อค้นหาพนักงาน..." value="${escapeHtml(taskForm.empSearch || "")}">
+              <div class="task-emp-suggest-list" id="task-emp-suggestions">${renderEmpSuggestionItems(employees, taskForm.empSearch, taskForm.employeeIds)}</div>
+            </div>
+            ${tags ? `<div class="task-emp-tags">${tags}</div>` : ""}
           </div>
         </div>
       </div>
