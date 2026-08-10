@@ -31,7 +31,7 @@ export function renderDetail({ emp, certificates = [], achievements = [] }) {
         <span class="station-level-badge" style="color:${color};background:${color}1a">${escapeHtml(s.levelEn)}</span>
       </div>
       <div class="station-name">${escapeHtml(s.name)}</div>
-      <div class="station-hours">${s.v} ชม.</div>
+      <div class="station-hours">${s.trained ? `${s.v} ชม.` : "ยังไม่ผ่านอบรม"}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${barPct}%;background:${color}"></div></div>
     </div>
   `;

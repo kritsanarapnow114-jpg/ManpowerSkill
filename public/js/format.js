@@ -21,17 +21,20 @@ export function stColor(pct) {
   return pct >= 90 ? "#16a34a" : pct >= 75 ? "#0c7f93" : pct >= 60 ? "#e0902e" : "#dc2626";
 }
 
-// Station proficiency tiers, mirrors server/labels.js STATION_LEVELS.
+// Station proficiency tiers, mirrors server/labels.js STATION_LEVELS. An employee must pass
+// basic training for a station before they can work it at all; from there, hours worked push
+// them from Basic up to Skilled/Expert.
 export const STATION_LEVELS = [
-  { key: "none", en: "None", min: 0 },
-  { key: "basic", en: "Basic", min: 40 },
+  { key: "none", en: "None" },
+  { key: "basic", en: "Basic" },
   { key: "skilled", en: "Skilled", min: 120 },
   { key: "expert", en: "Expert", min: 300 },
 ];
 
-export function stationLevelOf(hours) {
-  let level = STATION_LEVELS[0];
-  for (const l of STATION_LEVELS) if (hours >= l.min) level = l;
+export function stationLevelOf(trained, hours) {
+  if (!trained) return STATION_LEVELS[0];
+  let level = STATION_LEVELS[1];
+  for (const l of STATION_LEVELS) if (l.min !== undefined && hours >= l.min) level = l;
   return level;
 }
 

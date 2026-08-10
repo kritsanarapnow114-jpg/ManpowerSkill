@@ -205,6 +205,29 @@ async function ensureSchema() {
       await client.query("INSERT INTO schema_flags (key) VALUES ('st_hours_reset') ON CONFLICT DO NOTHING");
     }
 
+    // One-time migration: each station value used to be a plain hours number; it's now
+    // { hours, trained } so a station can require passing basic training before any work
+    // hours count toward Skilled/Expert. Wrap any lingering plain numbers into that shape.
+    const stGateFlag = await client.query("SELECT 1 FROM schema_flags WHERE key = 'st_trained_gate'");
+    if (stGateFlag.rows.length === 0) {
+      const { rows: stEntryRows } = await client.query("SELECT id, st FROM employees");
+      for (const row of stEntryRows) {
+        const st = row.st || {};
+        let changed = false;
+        const next = {};
+        for (const [sid, v] of Object.entries(st)) {
+          if (typeof v === "number") {
+            next[sid] = { hours: v, trained: v > 0 };
+            changed = true;
+          } else {
+            next[sid] = v;
+          }
+        }
+        if (changed) await client.query("UPDATE employees SET st = $1 WHERE id = $2", [JSON.stringify(next), row.id]);
+      }
+      await client.query("INSERT INTO schema_flags (key) VALUES ('st_trained_gate') ON CONFLICT DO NOTHING");
+    }
+
     // One-time migration: %Skill judgment axes were replaced with a different, unrelated set of
     // categories, so old scores can't carry over — reset g2 to zeros sized to the new axis count.
     const { rows: g2Rows } = await client.query("SELECT id, g2 FROM employees");
@@ -244,7 +267,10 @@ async function ensureSchema() {
         }
         const stObj = {};
         // Seed data historically stored 0-100 proficiency percentages; scale to plausible work hours.
-        stationIds.forEach((sid, i) => { stObj[sid] = Math.round(st[i] * 3.2); });
+        stationIds.forEach((sid, i) => {
+          const hours = Math.round(st[i] * 3.2);
+          stObj[sid] = { hours, trained: hours > 0 };
+        });
         await client.query(
           `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,

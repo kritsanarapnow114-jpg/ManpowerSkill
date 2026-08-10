@@ -270,6 +270,9 @@ button { font-family: inherit; }
 .station-form-thumb { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; flex: none; background: #eef2f5; }
 .station-form-thumb-empty { border: 1px dashed #dbe3e9; }
 .station-hours-input { flex: none; width: 72px; padding: 7px 9px; text-align: right; }
+.station-hours-input:disabled { background: #f1f5f8; color: #b6c0c8; }
+.station-trained-check { display: flex; align-items: center; gap: 5px; flex: none; font-size: 11px; font-weight: 600; color: #5a6a78; cursor: pointer; white-space: nowrap; }
+.station-trained-check input { width: 14px; height: 14px; cursor: pointer; }
 
 /* ---------- tasks screen ---------- */
 .task-kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 18px; }

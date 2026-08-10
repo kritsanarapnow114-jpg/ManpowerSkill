@@ -50,11 +50,12 @@ const TASK_LEVEL_WEIGHT = { "ง่าย": 1, "กลาง": 2, "ยาก": 3
 // Points a linked skill axis moves by when a task assignment is marked done/undone.
 const TASK_SKILL_BUMP = 5;
 
-// Station proficiency is measured in accumulated work hours, mapped to one of these tiers.
-// Same thresholds apply to every station.
+// Station proficiency: an employee must first pass basic training for a station before they're
+// allowed to work it at all ("none" -> "basic"); from there, proficiency rises with accumulated
+// work hours ("basic" -> "skilled" -> "expert"). Hour thresholds are the same for every station.
 const STATION_LEVELS = [
-  { key: "none", en: "None", min: 0 },
-  { key: "basic", en: "Basic", min: 40 },
+  { key: "none", en: "None" },
+  { key: "basic", en: "Basic" },
   { key: "skilled", en: "Skilled", min: 120 },
   { key: "expert", en: "Expert", min: 300 },
 ];

@@ -19,8 +19,8 @@ export function renderForm({ draft, meta }) {
   `).join("");
 
   const stSliders = meta.stations.map((station) => {
-    const v = draft.st[station.id] ?? 0;
-    const level = stationLevelOf(v);
+    const entry = draft.st[station.id] || { hours: 0, trained: false };
+    const level = stationLevelOf(entry.trained, entry.hours);
     const color = stationLevelColor(level.key);
     const thumb = station.image
       ? `<img class="station-form-thumb" src="${escapeHtml(station.image)}" alt="">`
@@ -29,7 +29,12 @@ export function renderForm({ draft, meta }) {
       <div class="station-form-row">
         ${thumb}
         <span class="slider-label">${escapeHtml(station.name)}</span>
-        <input type="number" min="0" step="1" class="field-input station-hours-input" value="${v}" data-slider="st" data-station-id="${escapeHtml(station.id)}">
+        <label class="station-trained-check" title="ผ่านการอบรมพื้นฐาน">
+          <input type="checkbox" ${entry.trained ? "checked" : ""} data-station-trained="${escapeHtml(station.id)}">
+          <span>อบรมแล้ว</span>
+        </label>
+        <input type="number" min="0" step="1" class="field-input station-hours-input" id="station-hours-${escapeHtml(station.id)}"
+          value="${entry.hours}" ${entry.trained ? "" : "disabled"} data-slider="st" data-station-id="${escapeHtml(station.id)}">
         <span style="font-size:12px;color:#8494a1">ชม.</span>
         <span class="station-level-badge" id="slider-val-st-${escapeHtml(station.id)}" style="color:${color};background:${color}1a">${escapeHtml(level.en)}</span>
       </div>

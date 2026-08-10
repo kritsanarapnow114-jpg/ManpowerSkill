@@ -80,7 +80,7 @@ function draftFromEmployee(emp) {
     leaveQuota: { vacation: emp.leave.vacation.quota, sick: emp.leave.sick.quota, personal: emp.leave.personal.quota },
     g1: emp.g1.map((a) => a.v),
     g2: emp.g2.map((a) => a.v),
-    st: Object.fromEntries(emp.st.map((s) => [s.id, s.v])),
+    st: Object.fromEntries(emp.st.map((s) => [s.id, { hours: s.v, trained: s.trained }])),
     stats: { ...emp.stats },
   };
 }
@@ -110,7 +110,7 @@ function addNew() {
     leaveQuota: { ...state.meta.defaultLeaveQuota },
     g1: state.meta.g1Axes.map(() => 0),
     g2: state.meta.g2Axes.map(() => 0),
-    st: Object.fromEntries(state.meta.stations.map((s) => [s.id, 0])),
+    st: Object.fromEntries(state.meta.stations.map((s) => [s.id, { hours: 0, trained: false }])),
     stats: { today: "0/0", qc: "0/0", rework: "0/0", defect: "0/0" },
   };
   state.screen = "form";
@@ -185,20 +185,34 @@ function updateDraftSlider(group, index, value) {
   }
 }
 
-function updateDraftStation(stationId, value) {
-  if (!state.draft) return;
-  const n = parseInt(value, 10);
-  const v = Number.isFinite(n) && n > 0 ? n : 0;
-  state.draft.st[stationId] = v;
-
+function refreshStationBadge(stationId) {
+  const entry = state.draft.st[stationId] || { hours: 0, trained: false };
   const valEl = document.getElementById(`slider-val-st-${stationId}`);
   if (valEl) {
-    const level = stationLevelOf(v);
+    const level = stationLevelOf(entry.trained, entry.hours);
     const color = stationLevelColor(level.key);
     valEl.textContent = level.en;
     valEl.style.color = color;
     valEl.style.background = color + "1a";
   }
+  const hoursInput = document.getElementById(`station-hours-${stationId}`);
+  if (hoursInput) hoursInput.disabled = !entry.trained;
+}
+
+function updateDraftStationHours(stationId, value) {
+  if (!state.draft) return;
+  const n = parseInt(value, 10);
+  const v = Number.isFinite(n) && n > 0 ? n : 0;
+  const entry = state.draft.st[stationId] || { hours: 0, trained: false };
+  state.draft.st[stationId] = { ...entry, hours: v };
+  refreshStationBadge(stationId);
+}
+
+function updateDraftStationTrained(stationId, trained) {
+  if (!state.draft) return;
+  const entry = state.draft.st[stationId] || { hours: 0, trained: false };
+  state.draft.st[stationId] = { ...entry, trained };
+  refreshStationBadge(stationId);
 }
 
 async function refreshEmployees() {
@@ -589,7 +603,7 @@ appEl.addEventListener("input", (e) => {
   } else if (t.dataset && t.dataset.leaveField) {
     setDraftLeaveQuota(t.dataset.leaveField, t.value);
   } else if (t.dataset && t.dataset.slider === "st") {
-    updateDraftStation(t.dataset.stationId, t.value);
+    updateDraftStationHours(t.dataset.stationId, t.value);
   } else if (t.dataset && t.dataset.slider) {
     updateDraftSlider(t.dataset.slider, parseInt(t.dataset.index, 10), t.value);
   } else if (t.id === "task-title-input") {
@@ -621,7 +635,9 @@ appEl.addEventListener("input", (e) => {
 
 appEl.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.id === "task-axis-select") {
+  if (t.dataset && t.dataset.stationTrained) {
+    updateDraftStationTrained(t.dataset.stationTrained, t.checked);
+  } else if (t.id === "task-axis-select") {
     if (!t.value) {
       state.taskForm.axisGroup = "";
       state.taskForm.axisIndex = null;

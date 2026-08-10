@@ -96,9 +96,11 @@ async function serialize(row) {
     g1: G1_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
     g2: G2_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
     st: stations.map((s) => {
-      const hours = stValues[s.id] ?? 0;
-      const level = stationLevelOf(hours);
-      return { id: s.id, code: s.code, name: s.name, image: s.image, v: hours, level: level.key, levelEn: level.en };
+      const entry = stValues[s.id];
+      const hours = entry && typeof entry === "object" ? clampHours(entry.hours) : 0;
+      const trained = !!(entry && typeof entry === "object" && entry.trained);
+      const level = stationLevelOf(trained, hours);
+      return { id: s.id, code: s.code, name: s.name, image: s.image, v: hours, trained, level: level.key, levelEn: level.en };
     }),
     stats: { today: row.stat_today, qc: row.stat_qc, rework: row.stat_rework, defect: row.stat_defect },
     pass: passOf(g1Values, g2Values),
@@ -166,10 +168,13 @@ function validateBody(body, { partial } = {}) {
   }
   if (need("st")) {
     if (typeof body.st !== "object" || body.st === null || Array.isArray(body.st)) {
-      errors.push("st must be an object of station work-hours keyed by station id");
+      errors.push("st must be an object keyed by station id");
     } else {
       out.st = {};
-      for (const [stationId, v] of Object.entries(body.st)) out.st[stationId] = clampHours(v);
+      for (const [stationId, entry] of Object.entries(body.st)) {
+        const e = entry && typeof entry === "object" ? entry : {};
+        out.st[stationId] = { hours: clampHours(e.hours), trained: !!e.trained };
+      }
     }
   }
   if (need("leaveQuota")) {
