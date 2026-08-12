@@ -30,7 +30,9 @@ const state = {
   screen: "list",
   selId: null,
   draft: null,
-  taskForm: { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null },
+  taskForm: { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" },
+  recurringTasks: [],
+  recurringAchievements: [],
   taskDistribute: { openTaskId: null, selection: [] },
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
@@ -38,7 +40,7 @@ const state = {
   certificates: [],
   certificateForm: { employeeId: null, name: "", expiry: "", image: "" },
   achievements: [],
-  achievementForm: { employeeId: null, title: "", date: todayISO(), note: "", axisGroup: "", axisIndex: null },
+  achievementForm: { employeeId: null, title: "", date: todayISO(), note: "", axisGroup: "", axisIndex: null, frequency: "" },
   workLogs: [],
   workLogForm: { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" },
   users: [],
@@ -222,9 +224,13 @@ async function refreshEmployees() {
 }
 
 async function refreshTasks() {
-  const [tasks, employees] = await Promise.all([api.listTasks(), api.listEmployees()]);
-  state.tasks = tasks;
-  state.employees = employees;
+  const isEmployee = state.currentUser && state.currentUser.role === "employee";
+  const calls = [api.listTasks(), api.listEmployees()];
+  if (!isEmployee) calls.push(api.listRecurringTasks());
+  const results = await Promise.all(calls);
+  state.tasks = results[0];
+  state.employees = results[1];
+  if (!isEmployee) state.recurringTasks = results[2];
 }
 
 async function addTask() {
@@ -232,12 +238,19 @@ async function addTask() {
   const title = (state.taskForm.title || "").trim();
   if (!title || !employeeIds.length) return;
   try {
-    const payload = { employeeIds, title, due: (state.taskForm.due || "").trim(), level: state.taskForm.level };
+    const frequency = state.taskForm.frequency;
+    const payload = { employeeIds, title, level: state.taskForm.level };
     if (state.taskForm.axisGroup) {
       payload.axisGroup = state.taskForm.axisGroup;
       payload.axisIndex = state.taskForm.axisIndex;
     }
-    await api.createTask(payload);
+    if (frequency) {
+      payload.frequency = frequency;
+      await api.createRecurringTask(payload);
+    } else {
+      payload.due = (state.taskForm.due || "").trim();
+      await api.createTask(payload);
+    }
     await refreshTasks();
     state.taskForm.title = "";
     state.taskForm.due = "";
@@ -245,9 +258,21 @@ async function addTask() {
     state.taskForm.empSearch = "";
     state.taskForm.axisGroup = "";
     state.taskForm.axisIndex = null;
+    state.taskForm.frequency = "";
     state.error = null;
   } catch (err) {
     state.error = "มอบหมายงานไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteRecurringTask(id) {
+  try {
+    await api.deleteRecurringTask(id);
+    await refreshTasks();
+    state.error = null;
+  } catch (err) {
+    state.error = "ยกเลิกงานประจำไม่สำเร็จ: " + err.message;
   }
   render();
 }
@@ -466,27 +491,40 @@ async function deleteCertificate(id) {
   render();
 }
 
+async function refreshRecurringAchievements() {
+  state.recurringAchievements = await api.listRecurringAchievements();
+}
+
 async function addAchievement() {
   const employeeId = state.achievementForm.employeeId || state.selId || (state.employees[0] && state.employees[0].id);
   const title = (state.achievementForm.title || "").trim();
   if (!employeeId || !title) return;
   try {
+    const frequency = state.achievementForm.frequency;
     const payload = {
       employeeId,
       title,
-      date: state.achievementForm.date || "",
       note: state.achievementForm.note || "",
     };
     if (state.achievementForm.axisGroup) {
       payload.axisGroup = state.achievementForm.axisGroup;
       payload.axisIndex = state.achievementForm.axisIndex;
     }
-    const created = await api.createAchievement(payload);
-    state.achievements.unshift(created);
+    if (frequency) {
+      payload.frequency = frequency;
+      await api.createRecurringAchievement(payload);
+      await refreshRecurringAchievements();
+      state.achievements = await api.listAchievements();
+    } else {
+      payload.date = state.achievementForm.date || "";
+      const created = await api.createAchievement(payload);
+      state.achievements.unshift(created);
+    }
     state.achievementForm.title = "";
     state.achievementForm.note = "";
     state.achievementForm.axisGroup = "";
     state.achievementForm.axisIndex = null;
+    state.achievementForm.frequency = "";
     state.error = null;
   } catch (err) {
     state.error = "บันทึกผลงานไม่สำเร็จ: " + err.message;
@@ -501,6 +539,17 @@ async function deleteAchievement(id) {
     state.error = null;
   } catch (err) {
     state.error = "ลบรายการไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteRecurringAchievement(id) {
+  try {
+    await api.deleteRecurringAchievement(id);
+    await refreshRecurringAchievements();
+    state.error = null;
+  } catch (err) {
+    state.error = "ยกเลิกผลงานประจำไม่สำเร็จ: " + err.message;
   }
   render();
 }
@@ -690,15 +739,17 @@ function resetAppState() {
   state.screen = "list";
   state.selId = null;
   state.draft = null;
-  state.taskForm = { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null };
+  state.taskForm = { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" };
   state.taskDistribute = { openTaskId: null, selection: [] };
+  state.recurringTasks = [];
+  state.recurringAchievements = [];
   state.attendanceRecords = [];
   state.attendanceForm = { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" };
   state.stationForm = { editingId: null, code: "", name: "", image: "", hazards: [] };
   state.certificates = [];
   state.certificateForm = { employeeId: null, name: "", expiry: "", image: "" };
   state.achievements = [];
-  state.achievementForm = { employeeId: null, title: "", date: todayISO(), note: "", axisGroup: "", axisIndex: null };
+  state.achievementForm = { employeeId: null, title: "", date: todayISO(), note: "", axisGroup: "", axisIndex: null, frequency: "" };
   state.workLogs = [];
   state.workLogForm = { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" };
   state.users = [];
@@ -732,6 +783,13 @@ async function loadAppData() {
     if (state.currentUser.role === "admin") {
       state.users = await api.listUsers();
       state.userForm = emptyUserForm();
+    }
+    if (state.currentUser.role !== "employee") {
+      const [recurringTasks, recurringAchievements] = await Promise.all([
+        api.listRecurringTasks(), api.listRecurringAchievements(),
+      ]);
+      state.recurringTasks = recurringTasks;
+      state.recurringAchievements = recurringAchievements;
     }
     if (state.currentUser.role === "employee") {
       state.screen = "detail";
@@ -878,7 +936,7 @@ function renderShell() {
   } else if (screen === "list") {
     content = renderList({ employees: state.employees });
   } else if (screen === "tasks") {
-    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true });
+    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true, recurringTasks: state.recurringTasks });
   } else if (screen === "attendance") {
     content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
   } else if (screen === "stations") {
@@ -886,7 +944,7 @@ function renderShell() {
   } else if (screen === "certificates") {
     content = renderCertificates({ employees: state.employees, certificates: state.certificates, form: state.certificateForm });
   } else if (screen === "achievements") {
-    content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm, meta: state.meta });
+    content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm, meta: state.meta, recurringAchievements: state.recurringAchievements });
   } else if (screen === "worklog") {
     content = renderWorkLog({ employees: state.employees, stations: state.meta.stations, logs: state.workLogs, form: state.workLogForm, hazardTypes: state.meta.hazardTypes });
   } else if (screen === "users" && isAdmin) {
@@ -1022,6 +1080,7 @@ appEl.addEventListener("click", (e) => {
   else if (action === "complete-task") toggleTaskDone(actionEl.dataset.taskId, true);
   else if (action === "reopen-task") toggleTaskDone(actionEl.dataset.taskId, false);
   else if (action === "delete-task") deleteTask(actionEl.dataset.taskId);
+  else if (action === "delete-recurring-task") deleteRecurringTask(actionEl.dataset.id);
   else if (action === "open-distribute-task") openDistributeTask(actionEl.dataset.taskId);
   else if (action === "cancel-distribute-task") cancelDistributeTask();
   else if (action === "confirm-distribute-task") confirmDistributeTask(actionEl.dataset.taskId);
@@ -1036,6 +1095,7 @@ appEl.addEventListener("click", (e) => {
   else if (action === "delete-certificate") deleteCertificate(actionEl.dataset.id);
   else if (action === "add-achievement") addAchievement();
   else if (action === "delete-achievement") deleteAchievement(actionEl.dataset.id);
+  else if (action === "delete-recurring-achievement") deleteRecurringAchievement(actionEl.dataset.id);
   else if (action === "add-worklog") addWorkLog();
   else if (action === "delete-worklog") deleteWorkLog(actionEl.dataset.id);
   else if (action === "add-new") addNew();
@@ -1136,6 +1196,10 @@ appEl.addEventListener("change", (e) => {
       state.taskForm.axisGroup = group;
       state.taskForm.axisIndex = parseInt(idx, 10);
     }
+  } else if (t.id === "task-frequency-select") {
+    state.taskForm.frequency = t.value;
+  } else if (t.id === "ach-frequency-select") {
+    state.achievementForm.frequency = t.value;
   } else if (t.id === "att-emp-select") {
     state.attendanceForm.employeeId = t.value;
     render();

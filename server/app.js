@@ -14,6 +14,8 @@ app.use("/api", requireAuth);
 app.use("/api/meta", require("./routes/meta"));
 app.use("/api/employees", require("./routes/employees"));
 app.use("/api/tasks", require("./routes/tasks"));
+app.use("/api/recurring-tasks", require("./routes/recurringTasks"));
+app.use("/api/recurring-achievements", require("./routes/recurringAchievements"));
 app.use("/api/attendance", require("./routes/attendance"));
 app.use("/api/stations", require("./routes/stations"));
 app.use("/api/certificates", require("./routes/certificates"));

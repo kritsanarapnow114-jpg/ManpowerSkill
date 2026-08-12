@@ -1,4 +1,4 @@
-import { avatarBg, initials, taskColor, taskLevelColor, taskPct, isTaskOverdue, escapeHtml } from "../format.js";
+import { avatarBg, initials, taskColor, taskLevelColor, taskPct, isTaskOverdue, escapeHtml, FREQUENCY_LABELS } from "../format.js";
 import { icons } from "../icons.js";
 
 export function renderEmpSuggestionItems(employees, query, excludeIds, action = "pick-task-emp") {
@@ -23,7 +23,7 @@ export function renderEmpSuggestionItems(employees, query, excludeIds, action = 
   `).join("");
 }
 
-export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, currentUser = null, distribute = null }) {
+export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, currentUser = null, distribute = null, recurringTasks = [] }) {
   const tkAll = tasks.length;
   const tkDone = tasks.filter((t) => t.done).length;
   const tkOverdue = tasks.filter((t) => isTaskOverdue(t.due, t.done)).length;
@@ -192,6 +192,17 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
             <div class="field-label" style="margin-bottom:8px">ระดับความยาก</div>
             <div class="level-select-row">${levelButtons}</div>
           </div>
+          ${!isTeamLeadView ? `
+            <div>
+              <div class="field-label" style="margin-bottom:8px">ทำซ้ำ</div>
+              <select class="field-input" id="task-frequency-select" style="min-width:140px">
+                <option value="" ${!taskForm.frequency ? "selected" : ""}>ครั้งเดียว</option>
+                <option value="daily" ${taskForm.frequency === "daily" ? "selected" : ""}>รายวัน</option>
+                <option value="weekly" ${taskForm.frequency === "weekly" ? "selected" : ""}>รายสัปดาห์</option>
+                <option value="monthly" ${taskForm.frequency === "monthly" ? "selected" : ""}>รายเดือน</option>
+              </select>
+            </div>
+          ` : ""}
           <div style="flex:1;min-width:260px">
             <div class="field-label" style="margin-bottom:8px">มอบหมายให้ (พิมพ์ชื่อ/ชื่อเล่น/รหัสเพื่อค้นหา)</div>
             <div class="task-emp-picker">
@@ -202,6 +213,27 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
           </div>
         </div>
       </div>
+
+      ${!isTeamLeadView && recurringTasks.length ? `
+        <div class="card" style="padding:16px 20px">
+          <div class="section-title" style="margin-bottom:12px">งานประจำที่ตั้งไว้ <small>· Recurring tasks</small></div>
+          <div class="recurring-list">
+            ${recurringTasks.map((r) => {
+              const names = r.employeeIds.map((id) => (empById[id] ? (empById[id].nickname || empById[id].nameEn) : id)).join(", ");
+              return `
+                <div class="recurring-row">
+                  <span class="recurring-freq-badge">${escapeHtml(FREQUENCY_LABELS[r.frequency] || r.frequency)}</span>
+                  <div class="recurring-row-body">
+                    <div class="recurring-row-title">${escapeHtml(r.title)}</div>
+                    <div class="recurring-row-meta">${escapeHtml(names)}</div>
+                  </div>
+                  <button class="btn-icon" title="ยกเลิกงานประจำ" data-action="delete-recurring-task" data-id="${escapeHtml(r.id)}">${icons.trash}</button>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      ` : ""}
 
       <div class="card" style="padding:16px 20px">
         <div class="section-title" style="margin-bottom:12px">Workload รายคน <small>· Per-employee workload</small></div>

@@ -4,12 +4,14 @@ const express = require("express");
 const { pool, ready } = require("../db");
 const { forbidRoles } = require("../auth");
 const { g1AxesFor, g2AxesFor } = require("../labels");
+const { ensureRecurringGenerated } = require("../recurring");
 
 const router = express.Router();
 
 router.use(async (req, res, next) => {
   try {
     await ready();
+    await ensureRecurringGenerated();
     next();
   } catch (err) {
     next(err);

@@ -96,11 +96,10 @@ function attendanceComponent(data) {
   return Math.max(0, Math.min(100, score));
 }
 
-// Only counts achievements explicitly tagged to this exact axis when logged - an achievement
-// left untagged (general recognition) or tagged to a different axis doesn't move this one.
-function achievementComponent(data, group, index) {
-  const count = data.achievements.filter((a) => a.axis_group === group && a.axis_index === index).length;
-  return Math.max(0, Math.min(100, count * ACHIEVEMENT_CREDIT));
+// Counts achievements explicitly tagged to this exact axis when logged - an achievement left
+// untagged (general recognition) or tagged to a different axis doesn't count here.
+function achievementCountFor(data, group, index) {
+  return data.achievements.filter((a) => a.axis_group === group && a.axis_index === index).length;
 }
 
 function stationComponent(data, keywords) {
@@ -114,14 +113,21 @@ function stationComponent(data, keywords) {
 }
 
 // The domain signal is what backs an axis when there's no task explicitly linked to it (or in
-// addition to one) - whichever real records come closest to what the axis actually measures.
+// addition to one). An axis's "base" signal (attendance/station) is whatever real records come
+// closest to what it measures; a tagged achievement always counts too - blended in alongside the
+// base when both exist, so tagging an achievement to *any* axis (even an attendance/station one)
+// always has an effect, not just axes whose base signal happens to be "achievement".
 function domainComponent(axis, data, group, index) {
-  if (axis.signal === "attendance") return attendanceComponent(data);
-  if (axis.signal === "station") {
-    const station = stationComponent(data, axis.stationKeywords);
-    return station !== null ? station : achievementComponent(data, group, index);
-  }
-  return achievementComponent(data, group, index);
+  const achievementCount = achievementCountFor(data, group, index);
+  const achievementScore = Math.max(0, Math.min(100, achievementCount * ACHIEVEMENT_CREDIT));
+
+  let base = null;
+  if (axis.signal === "attendance") base = attendanceComponent(data);
+  else if (axis.signal === "station") base = stationComponent(data, axis.stationKeywords);
+
+  if (base === null) return achievementScore;
+  if (achievementCount === 0) return base;
+  return Math.round(base * 0.5 + achievementScore * 0.5);
 }
 
 function scoreOneAxis(axis, group, index, data) {

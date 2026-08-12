@@ -1,4 +1,4 @@
-import { avatarBg, initials, escapeHtml } from "../format.js";
+import { avatarBg, initials, escapeHtml, FREQUENCY_LABELS } from "../format.js";
 import { icons } from "../icons.js";
 
 // Resolves an achievement's linked axis to its display label, if any - needs the owning
@@ -12,7 +12,7 @@ function axisLabel(meta, position, axisGroup, axisIndex) {
   return `${axisGroup === "g1" ? "Advance" : "Skill"} · ${axis.en}`;
 }
 
-export function renderAchievements({ employees, achievements, form, meta }) {
+export function renderAchievements({ employees, achievements, form, meta, recurringAchievements = [] }) {
   const empById = Object.fromEntries(employees.map((e) => [e.id, e]));
 
   const empOptions = employees
@@ -78,11 +78,41 @@ export function renderAchievements({ employees, achievements, form, meta }) {
           <label class="assign-field due" style="flex:1">ทักษะที่เกี่ยวข้อง (ถ้ามี)
             <select class="field-input" id="ach-axis-select">${axisOptions}</select>
           </label>
+          <label class="assign-field due" style="flex:1">ทำซ้ำ
+            <select class="field-input" id="ach-frequency-select">
+              <option value="" ${!form.frequency ? "selected" : ""}>ครั้งเดียว</option>
+              <option value="daily" ${form.frequency === "daily" ? "selected" : ""}>รายวัน</option>
+              <option value="weekly" ${form.frequency === "weekly" ? "selected" : ""}>รายสัปดาห์</option>
+              <option value="monthly" ${form.frequency === "monthly" ? "selected" : ""}>รายเดือน</option>
+            </select>
+          </label>
           <label class="field-label" style="flex:2">รายละเอียดเพิ่มเติม (ถ้ามี)
             <input class="field-input" id="ach-note-input" value="${escapeHtml(form.note)}" placeholder="รายละเอียดเพิ่มเติม" style="margin-top:6px">
           </label>
         </div>
       </div>
+
+      ${recurringAchievements.length ? `
+        <div class="card" style="padding:16px 20px">
+          <div class="section-title" style="margin-bottom:12px">ผลงานประจำที่ตั้งไว้ <small>· Recurring achievements</small></div>
+          <div class="recurring-list">
+            ${recurringAchievements.map((r) => {
+              const emp = empById[r.employeeId];
+              const tag = emp ? axisLabel(meta, emp.position, r.axisGroup, r.axisIndex) : null;
+              return `
+                <div class="recurring-row">
+                  <span class="recurring-freq-badge">${escapeHtml(FREQUENCY_LABELS[r.frequency] || r.frequency)}</span>
+                  <div class="recurring-row-body">
+                    <div class="recurring-row-title">${escapeHtml(r.title)}</div>
+                    <div class="recurring-row-meta">${escapeHtml(emp ? (emp.nickname || emp.nameEn) : r.employeeId)}${tag ? " · " + escapeHtml(tag) : ""}</div>
+                  </div>
+                  <button class="btn-icon" title="ยกเลิกผลงานประจำ" data-action="delete-recurring-achievement" data-id="${escapeHtml(r.id)}">${icons.trash}</button>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      ` : ""}
 
       <div class="card" style="padding:0;overflow:hidden;margin-top:18px">
         <div class="achievement-row achievement-head">

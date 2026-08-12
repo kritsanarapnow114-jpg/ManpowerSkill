@@ -6,6 +6,7 @@ const { g1AxesFor, g2AxesFor, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../l
 const { avgOf, passOf, stationLevelOf } = require("../compute");
 const { fetchTeamMemberIds, syncTeamMembers } = require("../teams");
 const { computeSkillScores } = require("../skillscore");
+const { ensureRecurringGenerated } = require("../recurring");
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ function clamp0(v) {
 router.use(async (req, res, next) => {
   try {
     await ready();
+    await ensureRecurringGenerated();
     next();
   } catch (err) {
     next(err);

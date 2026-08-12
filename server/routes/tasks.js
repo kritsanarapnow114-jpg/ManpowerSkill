@@ -4,12 +4,14 @@ const express = require("express");
 const { pool, ready } = require("../db");
 const { TASK_LEVELS, g1AxesFor, g2AxesFor } = require("../labels");
 const { fetchTeamMemberIds, isTeamLead } = require("../teams");
+const { ensureRecurringGenerated } = require("../recurring");
 
 const router = express.Router();
 
 router.use(async (req, res, next) => {
   try {
     await ready();
+    await ensureRecurringGenerated();
     next();
   } catch (err) {
     next(err);

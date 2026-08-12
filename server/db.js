@@ -122,6 +122,42 @@ const SCHEMA_SQL = `
   ALTER TABLE achievements ADD COLUMN IF NOT EXISTS axis_group TEXT;
   ALTER TABLE achievements ADD COLUMN IF NOT EXISTS axis_index INTEGER;
 
+  -- Templates that spawn a real task automatically every day/week/month (see server/recurring.js).
+  -- last_generated_period stores the period key (e.g. a date, an ISO week's Monday, or a
+  -- YYYY-MM) it was last generated for, so each period only ever produces one instance.
+  CREATE TABLE IF NOT EXISTS recurring_tasks (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    level TEXT NOT NULL DEFAULT 'กลาง',
+    axis_group TEXT,
+    axis_index INTEGER,
+    frequency TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    last_generated_period TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  CREATE TABLE IF NOT EXISTS recurring_task_assignees (
+    recurring_task_id TEXT NOT NULL REFERENCES recurring_tasks(id) ON DELETE CASCADE,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    PRIMARY KEY (recurring_task_id, employee_id)
+  );
+
+  -- Same idea as recurring_tasks but spawns an achievement (for a single employee) each period -
+  -- e.g. a weekly 5S check-in - so achievement-backed skill axes get a steady, real signal.
+  CREATE TABLE IF NOT EXISTS recurring_achievements (
+    id TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    axis_group TEXT,
+    axis_index INTEGER,
+    frequency TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    last_generated_period TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
   -- Daily record of who worked which station and for how long; station proficiency hours
   -- are summed from these instead of being typed in directly.
   CREATE TABLE IF NOT EXISTS work_logs (

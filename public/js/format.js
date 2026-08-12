@@ -150,6 +150,8 @@ export function hazardBadges(hazardKeys, hazardTypes) {
     .join("");
 }
 
+export const FREQUENCY_LABELS = { daily: "รายวัน", weekly: "รายสัปดาห์", monthly: "รายเดือน" };
+
 export function certStatus(expiry) {
   if (!expiry) return { kind: "none", label: "ไม่มีวันหมดอายุ", color: "#8494a1" };
   const days = Math.floor((new Date(expiry + "T00:00:00") - new Date(new Date().toDateString())) / 86400000);
