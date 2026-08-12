@@ -1,26 +1,8 @@
 import { lvlColor, escapeHtml, stationLevelOf, stationLevelColor, hazardBadges } from "../format.js";
-import { radarSVG } from "../radar.js";
 import { renderEmpSuggestionItems } from "./tasks.js";
 
 export function renderForm({ draft, meta, currentUser, employees = [] }) {
   const isAdmin = currentUser && currentUser.role === "admin";
-  const g1Axes = meta.g1AxesByPosition[draft.position] || meta.g1AxesByPosition[meta.defaultPosition];
-  const g2Axes = meta.g2AxesByPosition[draft.position] || meta.g2AxesByPosition[meta.defaultPosition];
-  const g1Sliders = g1Axes.map((axis, i) => `
-    <div class="slider-row">
-      <span class="slider-label">${escapeHtml(axis.th.replace(/\n/g, " "))}</span>
-      <input type="range" min="0" max="100" value="${draft.g1[i]}" data-slider="g1" data-index="${i}">
-      <span class="slider-value" id="slider-val-g1-${i}" style="color:#2f8fd0">${draft.g1[i]}%</span>
-    </div>
-  `).join("");
-
-  const g2Sliders = g2Axes.map((axis, i) => `
-    <div class="slider-row">
-      <span class="slider-label">${escapeHtml(axis.th.replace(/\n/g, " "))}</span>
-      <input type="range" min="0" max="100" value="${draft.g2[i]}" data-slider="g2" data-index="${i}">
-      <span class="slider-value" id="slider-val-g2-${i}" style="color:#c78912">${draft.g2[i]}%</span>
-    </div>
-  `).join("");
 
   const stSliders = meta.stations.map((station) => {
     const entry = draft.st[station.id] || { hours: 0, trained: false };
@@ -67,15 +49,12 @@ export function renderForm({ draft, meta, currentUser, employees = [] }) {
   }).join("");
   const teamExcludeIds = [...(draft.teamMemberIds || []), draft.id].filter(Boolean);
 
-  const radar1 = radarSVG(g1Axes.map((axis, i) => ({ label: axis.th, v: draft.g1[i] })), "#2f8fd0", "rgba(47,143,208,.18)");
-  const radar2 = radarSVG(g2Axes.map((axis, i) => ({ label: axis.th, v: draft.g2[i] })), "#d99a17", "rgba(217,154,23,.26)");
-
   return `
     <div class="form-wrap">
       <div class="form-head">
         <div>
-          <div class="form-head-title">แก้ไขคะแนนความสามารถ</div>
-          <div class="form-head-sub">ปรับคะแนนแล้วกราฟจะอัปเดตทันที · กดบันทึกเพื่อจัดเก็บ</div>
+          <div class="form-head-title">แก้ไขข้อมูลพนักงาน</div>
+          <div class="form-head-sub">Advance standard / %Skill judgment คำนวณจากข้อมูลจริงอัตโนมัติ ดูได้ที่หน้าโปรไฟล์ · กดบันทึกเพื่อจัดเก็บข้อมูลนี้</div>
         </div>
         <div class="form-head-actions">
           <button class="btn-outline" data-action="cancel-form">ยกเลิก</button>
@@ -147,19 +126,6 @@ export function renderForm({ draft, meta, currentUser, employees = [] }) {
               ${teamTags ? `<div class="task-emp-tags">${teamTags}</div>` : `<div style="font-size:12px;color:#8494a1;margin-top:8px">ยังไม่ได้เลือกสมาชิกทีม</div>`}
             </div>
           ` : ""}
-        </div>
-      </div>
-
-      <div class="skill-grid">
-        <div class="card" style="padding:18px 20px">
-          <div style="font-weight:800;color:#2f8fd0;font-size:14px;text-align:center">Advance standard</div>
-          <div id="radar-g1" style="padding:6px 0 4px">${radar1}</div>
-          <div class="slider-list">${g1Sliders}</div>
-        </div>
-        <div class="card" style="padding:18px 20px">
-          <div style="font-weight:800;color:#c78912;font-size:14px;text-align:center">%Skill judgment</div>
-          <div id="radar-g2" style="padding:6px 0 4px">${radar2}</div>
-          <div class="slider-list">${g2Sliders}</div>
         </div>
       </div>
 

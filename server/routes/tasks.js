@@ -2,7 +2,7 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
-const { TASK_LEVELS, TASK_SKILL_BUMP, g1AxesFor, g2AxesFor } = require("../labels");
+const { TASK_LEVELS, g1AxesFor, g2AxesFor } = require("../labels");
 const { fetchTeamMemberIds, isTeamLead } = require("../teams");
 
 const router = express.Router();
@@ -15,16 +15,6 @@ router.use(async (req, res, next) => {
     next(err);
   }
 });
-
-async function applySkillBump(employeeId, axisGroup, axisIndex, delta) {
-  if (axisGroup !== "g1" && axisGroup !== "g2") return;
-  const empRes = await pool.query(`SELECT ${axisGroup} FROM employees WHERE id = $1`, [employeeId]);
-  const arr = empRes.rows[0] && empRes.rows[0][axisGroup];
-  if (!Array.isArray(arr) || axisIndex < 0 || axisIndex >= arr.length) return;
-  const next = arr.slice();
-  next[axisIndex] = Math.max(0, Math.min(100, (next[axisIndex] || 0) + delta));
-  await pool.query(`UPDATE employees SET ${axisGroup} = $1 WHERE id = $2`, [JSON.stringify(next), employeeId]);
-}
 
 // Whether any assignee of a task belongs to the given line — used to scope a shift leader's
 // visibility/actions to tasks relevant to their own team.
@@ -162,15 +152,13 @@ router.patch("/:id", async (req, res, next) => {
     if (!req.body || typeof req.body.done !== "boolean") return res.status(400).json({ error: "done must be a boolean" });
 
     const newDone = req.body.done;
-    const { axis_group: axisGroup, axis_index: axisIndex } = task.rows[0];
-    const { rows: assignments } = await pool.query("SELECT id, employee_id, done FROM task_assignments WHERE task_id = $1", [req.params.id]);
-
-    const delta = newDone ? TASK_SKILL_BUMP : -TASK_SKILL_BUMP;
-    for (const a of assignments) {
-      if (a.done === newDone) continue;
-      await pool.query("UPDATE task_assignments SET done = $1 WHERE id = $2", [newDone, a.id]);
-      await applySkillBump(a.employee_id, axisGroup, axisIndex, delta);
-    }
+    // done_at feeds the skill-score computation (on-time vs late, and the recent-activity
+    // window), so it's set the moment a task is actually marked done, not backdated - and only
+    // touched on a genuine state change, so re-confirming an already-done task doesn't refresh it.
+    await pool.query(
+      "UPDATE task_assignments SET done = $1, done_at = CASE WHEN $1 THEN now() ELSE NULL END WHERE task_id = $2 AND done <> $1",
+      [newDone, req.params.id]
+    );
     res.json({ id: req.params.id, done: newDone });
   } catch (err) {
     next(err);

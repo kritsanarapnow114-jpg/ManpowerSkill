@@ -1,7 +1,6 @@
 import { api, setUnauthorizedHandler } from "./api.js";
 import { icons } from "./icons.js";
-import { clamp, escapeHtml, normalizeImageLink, stationLevelOf, stationLevelColor } from "./format.js";
-import { radarSVG } from "./radar.js";
+import { escapeHtml, normalizeImageLink, stationLevelOf, stationLevelColor } from "./format.js";
 import { renderOverview } from "./screens/overview.js";
 import { renderList } from "./screens/list.js";
 import { renderDetail } from "./screens/detail.js";
@@ -54,7 +53,7 @@ const PAGE_MAP = {
   overview: ["ภาพรวมทีม", "Team capability overview"],
   list: ["พนักงานทั้งหมด", "All employees"],
   detail: ["ข้อมูลความสามารถพนักงาน", "Employee capability profile"],
-  form: ["แก้ไขคะแนนความสามารถ", "Edit capability scores"],
+  form: ["แก้ไขข้อมูลพนักงาน", "Edit employee info"],
   tasks: ["งานที่มอบหมาย", "Assigned tasks & progress"],
   attendance: ["บันทึกขาดลามาสาย", "Attendance & leave records"],
   stations: ["จัดการสถานี / เครื่องจักร", "Manage stations & machine photos"],
@@ -103,8 +102,6 @@ function draftFromEmployee(emp) {
     level: emp.level,
     lineId: emp.lineId,
     leaveQuota: { vacation: emp.leave.vacation.quota, sick: emp.leave.sick.quota, personal: emp.leave.personal.quota },
-    g1: emp.g1.map((a) => a.v),
-    g2: emp.g2.map((a) => a.v),
     st: Object.fromEntries(emp.st.map((s) => [s.id, { hours: s.v, trained: s.trained }])),
     stats: { ...emp.stats },
     isTeamLead: !!emp.isTeamLead,
@@ -124,8 +121,6 @@ function editEmp(id) {
 
 function addNew() {
   const position = state.meta.positions[0] || state.meta.defaultPosition;
-  const g1Axes = state.meta.g1AxesByPosition[position] || state.meta.g1AxesByPosition[state.meta.defaultPosition];
-  const g2Axes = state.meta.g2AxesByPosition[position] || state.meta.g2AxesByPosition[state.meta.defaultPosition];
   state.draft = {
     id: null,
     isNew: true,
@@ -140,8 +135,6 @@ function addNew() {
     level: "Basic",
     lineId: state.currentUser.role === "admin" ? (state.meta.lines[0] && state.meta.lines[0].id) : state.currentUser.lineId,
     leaveQuota: { ...state.meta.defaultLeaveQuota },
-    g1: g1Axes.map(() => 0),
-    g2: g2Axes.map(() => 0),
     st: Object.fromEntries(state.meta.stations.map((s) => [s.id, { hours: 0, trained: false }])),
     stats: { today: "0/0", qc: "0/0", rework: "0/0", defect: "0/0" },
     isTeamLead: false,
@@ -156,7 +149,7 @@ async function saveForm() {
   const d = state.draft;
   const payload = {
     name: d.name, nameEn: d.nameEn, nickname: d.nickname, photo: d.photo, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
-    lineId: d.lineId, leaveQuota: d.leaveQuota, g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
+    lineId: d.lineId, leaveQuota: d.leaveQuota, st: d.st, stats: d.stats,
     isTeamLead: d.isTeamLead, teamMemberIds: d.teamMemberIds,
   };
   try {
@@ -204,23 +197,6 @@ function setDraftGender(gender) {
   render();
 }
 
-function updateDraftSlider(group, index, value) {
-  if (!state.draft) return;
-  const v = clamp(value);
-  state.draft[group][index] = v;
-
-  const valEl = document.getElementById(`slider-val-${group}-${index}`);
-  if (valEl) valEl.textContent = v + "%";
-
-  const radarEl = document.getElementById(`radar-${group}`);
-  const axesByPosition = state.meta[group === "g1" ? "g1AxesByPosition" : "g2AxesByPosition"];
-  const axes = axesByPosition[state.draft.position] || axesByPosition[state.meta.defaultPosition];
-  const color = group === "g1" ? "#2f8fd0" : "#d99a17";
-  const fill = group === "g1" ? "rgba(47,143,208,.18)" : "rgba(217,154,23,.26)";
-  if (radarEl) {
-    radarEl.innerHTML = radarSVG(axes.map((axis, i) => ({ label: axis.th, v: state.draft[group][i] })), color, fill);
-  }
-}
 
 function refreshStationBadge(stationId) {
   const entry = state.draft.st[stationId] || { hours: 0, trained: false };
@@ -1077,8 +1053,6 @@ appEl.addEventListener("input", (e) => {
     setDraftField(t.dataset.field, t.value);
   } else if (t.dataset && t.dataset.leaveField) {
     setDraftLeaveQuota(t.dataset.leaveField, t.value);
-  } else if (t.dataset && t.dataset.slider) {
-    updateDraftSlider(t.dataset.slider, parseInt(t.dataset.index, 10), t.value);
   } else if (t.id === "task-title-input") {
     state.taskForm.title = t.value;
   } else if (t.id === "task-due-input") {

@@ -72,9 +72,10 @@ export function renderDetail({ emp, certificates = [], achievements = [], readOn
               <div class="detail-sub">${escapeHtml(emp.name)} · ${escapeHtml(emp.position)}${emp.gender ? ` · ${escapeHtml(emp.gender)}` : ""}</div>
             </div>
             <span class="level-pill" style="background:${lvlColor(emp.level)}">${icons.star} ${escapeHtml(emp.level)}</span>
-            ${readOnly ? "" : `<button class="btn-outline-accent" style="margin-left:auto" data-action="edit-this">${icons.edit} แก้ไขคะแนน</button>`}
+            ${readOnly ? "" : `<button class="btn-outline-accent" style="margin-left:auto" data-action="edit-this">${icons.edit} แก้ไขข้อมูล</button>`}
           </div>
 
+          <div style="font-size:11.5px;color:#8494a1;margin-top:2px">คำนวณจากข้อมูลจริงอัตโนมัติ (งาน, การเข้างาน, ชั่วโมงทำงาน, ผลงาน) ย้อนหลัง 90 วัน</div>
           <div class="radar-grid">
             <div class="radar-card">
               <div class="radar-title" style="color:#2f8fd0">Advance standard</div>

@@ -73,8 +73,11 @@ const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    done BOOLEAN NOT NULL DEFAULT false
+    done BOOLEAN NOT NULL DEFAULT false,
+    done_at TIMESTAMPTZ
   );
+
+  ALTER TABLE task_assignments ADD COLUMN IF NOT EXISTS done_at TIMESTAMPTZ;
 
   CREATE TABLE IF NOT EXISTS attendance (
     id TEXT PRIMARY KEY,
@@ -348,6 +351,16 @@ async function ensureSchema() {
         await client.query("UPDATE employees SET g1 = $1, g2 = $2 WHERE id = $3", [JSON.stringify(zerosG1), JSON.stringify(zerosG2), row.id]);
       }
       await client.query("INSERT INTO schema_flags (key) VALUES ('g1_g2_position_specific_reset') ON CONFLICT DO NOTHING");
+    }
+
+    // One-time migration: task_assignments gained a done_at timestamp (needed to compute skill
+    // scores from real completion history - on-time vs late, windowed to recent activity).
+    // Backfill existing done=true rows with "now" as a best-effort guess since the real
+    // completion time was never recorded.
+    const doneAtFlag = await client.query("SELECT 1 FROM schema_flags WHERE key = 'task_assignments_done_at_backfill'");
+    if (doneAtFlag.rows.length === 0) {
+      await client.query("UPDATE task_assignments SET done_at = now() WHERE done = true AND done_at IS NULL");
+      await client.query("INSERT INTO schema_flags (key) VALUES ('task_assignments_done_at_backfill') ON CONFLICT DO NOTHING");
     }
 
     // One-time migration: tasks used to belong to exactly one employee (employee_id + progress%);

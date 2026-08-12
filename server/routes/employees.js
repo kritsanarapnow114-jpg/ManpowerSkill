@@ -3,8 +3,9 @@
 const express = require("express");
 const { pool, ready } = require("../db");
 const { g1AxesFor, g2AxesFor, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
-const { clamp, avgOf, passOf, stationLevelOf } = require("../compute");
+const { avgOf, passOf, stationLevelOf } = require("../compute");
 const { fetchTeamMemberIds, syncTeamMembers } = require("../teams");
+const { computeSkillScores } = require("../skillscore");
 
 const router = express.Router();
 
@@ -83,8 +84,6 @@ async function fetchLeaveUsed(employeeId) {
 }
 
 async function serialize(row) {
-  const g1Values = row.g1;
-  const g2Values = row.g2;
   const stValues = row.st || {};
   const tasks = await fetchTasks(row.id);
   const workload = await fetchWorkload(row.id);
@@ -92,6 +91,10 @@ async function serialize(row) {
   const stations = await fetchStations();
   const stationHours = await fetchStationHours(row.id);
   const teamMemberIds = await fetchTeamMemberIds(row.id);
+
+  const g1Axes = g1AxesFor(row.position);
+  const g2Axes = g2AxesFor(row.position);
+  const { g1: g1Values, g2: g2Values } = await computeSkillScores(row.id, g1Axes, g2Axes);
 
   return {
     id: row.id,
@@ -107,8 +110,8 @@ async function serialize(row) {
     lineId: row.line_id,
     isTeamLead: !!row.is_team_lead,
     teamMemberIds,
-    g1: g1AxesFor(row.position).map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
-    g2: g2AxesFor(row.position).map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
+    g1: g1Axes.map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
+    g2: g2Axes.map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
     st: stations.map((s) => {
       const entry = stValues[s.id];
       const hours = stationHours[s.id] || 0;
@@ -171,17 +174,6 @@ function validateBody(body, { partial } = {}) {
   if (need("level")) {
     if (!LEVELS.includes(body.level)) errors.push(`level must be one of ${LEVELS.join(", ")}`);
     else out.level = body.level;
-  }
-  const positionForAxes = typeof body.position === "string" && body.position.trim() ? body.position.trim() : undefined;
-  if (need("g1")) {
-    const g1Axes = g1AxesFor(positionForAxes);
-    if (!Array.isArray(body.g1) || body.g1.length !== g1Axes.length) errors.push(`g1 must have ${g1Axes.length} values`);
-    else out.g1 = body.g1.map(clamp);
-  }
-  if (need("g2")) {
-    const g2Axes = g2AxesFor(positionForAxes);
-    if (!Array.isArray(body.g2) || body.g2.length !== g2Axes.length) errors.push(`g2 must have ${g2Axes.length} values`);
-    else out.g2 = body.g2.map(clamp);
   }
   if (need("st")) {
     if (typeof body.st !== "object" || body.st === null || Array.isArray(body.st)) {
@@ -286,11 +278,15 @@ router.post("/", async (req, res, next) => {
     if (teamErr) errors.push(teamErr);
     if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
+    // g1/g2 are computed live from real activity (see server/skillscore.js) and no longer
+    // editable - the columns just need any array of the right length to satisfy NOT NULL.
+    const zerosG1 = g1AxesFor(out.position).map(() => 0);
+    const zerosG2 = g2AxesFor(out.position).map(() => 0);
     await pool.query(
       `INSERT INTO employees (id, name, name_en, nickname, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal, line_id, is_team_lead)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
       [id, out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
-        JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
+        JSON.stringify(zerosG1), JSON.stringify(zerosG2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
         out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId, out.isTeamLead]
     );
@@ -328,11 +324,11 @@ router.put("/:id", async (req, res, next) => {
 
     await pool.query(
       `UPDATE employees SET name=$1, name_en=$2, nickname=$3, photo=$4, gender=$5, position=$6, level=$7, emp_code=$8,
-         join_year=$9, g1=$10, g2=$11, st=$12, stat_today=$13, stat_qc=$14, stat_rework=$15, stat_defect=$16,
-         leave_quota_vacation=$17, leave_quota_sick=$18, leave_quota_personal=$19, line_id=$20, is_team_lead=$21
-       WHERE id=$22`,
+         join_year=$9, st=$10, stat_today=$11, stat_qc=$12, stat_rework=$13, stat_defect=$14,
+         leave_quota_vacation=$15, leave_quota_sick=$16, leave_quota_personal=$17, line_id=$18, is_team_lead=$19
+       WHERE id=$20`,
       [out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
-        JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
+        JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
         out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId, out.isTeamLead, req.params.id]
     );

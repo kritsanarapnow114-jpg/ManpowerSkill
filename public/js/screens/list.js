@@ -51,7 +51,7 @@ export function renderList({ employees }) {
               <div class="player-card-back-stat-row"><span>สถานีที่ชำนาญ (Skilled+)</span><b>${stnQualified}/${e.st.length}</b></div>
               <div class="player-card-back-stat-row"><span>งานที่เสร็จ</span><b>${tasksDone}/${e.tasks.length}</b></div>
             </div>
-            <button class="btn-edit-row player-card-back-edit" data-action="edit-emp" data-id="${escapeHtml(e.id)}">แก้ไขคะแนน →</button>
+            <button class="btn-edit-row player-card-back-edit" data-action="edit-emp" data-id="${escapeHtml(e.id)}">แก้ไขข้อมูล →</button>
           </div>
         </div>
       </div>
