@@ -1,11 +1,11 @@
-import { lvlColor, initials, escapeHtml, taskPct, certStatus, stationLevelColor } from "../format.js";
+import { lvlColor, initials, escapeHtml, taskPct, certStatus, stationLevelColor, hazardBadges } from "../format.js";
 import { radarSVG } from "../radar.js";
 import { icons } from "../icons.js";
 
 const LEAVE_LABELS = { vacation: "ลาพักร้อน", sick: "ลาป่วย", personal: "ลากิจ" };
 const STATUS_RANK = { expired: 0, soon: 1, ok: 2, none: 3 };
 
-export function renderDetail({ emp, certificates = [], achievements = [], readOnly = false }) {
+export function renderDetail({ emp, certificates = [], achievements = [], readOnly = false, hazardTypes = [] }) {
   const leaveRows = Object.entries(LEAVE_LABELS).map(([key, label]) => {
     const { quota, used } = emp.leave[key];
     const remain = quota - used;
@@ -31,6 +31,7 @@ export function renderDetail({ emp, certificates = [], achievements = [], readOn
         <span class="station-level-badge" style="color:${color};background:${color}1a">${escapeHtml(s.levelEn)}</span>
       </div>
       <div class="station-name">${escapeHtml(s.name)}</div>
+      ${s.hazards && s.hazards.length ? `<div class="hazard-badge-row">${hazardBadges(s.hazards, hazardTypes)}</div>` : ""}
       <div class="station-hours">${s.trained ? `${s.v} ชม.` : "ยังไม่ผ่านอบรม"}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${barPct}%;background:${color}"></div></div>
     </div>

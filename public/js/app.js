@@ -34,7 +34,7 @@ const state = {
   taskForm: { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null },
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
-  stationForm: { editingId: null, code: "", name: "", image: "" },
+  stationForm: { editingId: null, code: "", name: "", image: "", hazards: [] },
   certificates: [],
   certificateForm: { employeeId: null, name: "", expiry: "", image: "" },
   achievements: [],
@@ -365,24 +365,32 @@ async function refreshMeta() {
 function editStation(id) {
   const s = state.meta.stations.find((x) => x.id === id);
   if (!s) return;
-  state.stationForm = { editingId: s.id, code: s.code, name: s.name, image: s.image || "" };
+  state.stationForm = { editingId: s.id, code: s.code, name: s.name, image: s.image || "", hazards: s.hazards ? [...s.hazards] : [] };
+  render();
+}
+
+function toggleStationHazard(key) {
+  const hazards = state.stationForm.hazards;
+  const i = hazards.indexOf(key);
+  if (i === -1) hazards.push(key);
+  else hazards.splice(i, 1);
   render();
 }
 
 function cancelStationEdit() {
-  state.stationForm = { editingId: null, code: "", name: "", image: "" };
+  state.stationForm = { editingId: null, code: "", name: "", image: "", hazards: [] };
   render();
 }
 
 async function saveStation() {
-  const { editingId, code, name, image } = state.stationForm;
+  const { editingId, code, name, image, hazards } = state.stationForm;
   if (!code.trim() || !name.trim()) return;
   try {
-    const payload = { code: code.trim(), name: name.trim(), image };
+    const payload = { code: code.trim(), name: name.trim(), image, hazards };
     if (editingId) await api.updateStation(editingId, payload);
     else await api.createStation(payload);
     await refreshMeta();
-    state.stationForm = { editingId: null, code: "", name: "", image: "" };
+    state.stationForm = { editingId: null, code: "", name: "", image: "", hazards: [] };
     state.error = null;
   } catch (err) {
     state.error = "บันทึกสถานีไม่สำเร็จ: " + err.message;
@@ -394,7 +402,7 @@ async function deleteStation(id) {
   try {
     await api.deleteStation(id);
     await refreshMeta();
-    if (state.stationForm.editingId === id) state.stationForm = { editingId: null, code: "", name: "", image: "" };
+    if (state.stationForm.editingId === id) state.stationForm = { editingId: null, code: "", name: "", image: "", hazards: [] };
     state.error = null;
   } catch (err) {
     state.error = "ลบสถานีไม่สำเร็จ: " + err.message;
@@ -655,7 +663,7 @@ function resetAppState() {
   state.taskForm = { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null };
   state.attendanceRecords = [];
   state.attendanceForm = { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" };
-  state.stationForm = { editingId: null, code: "", name: "", image: "" };
+  state.stationForm = { editingId: null, code: "", name: "", image: "", hazards: [] };
   state.certificates = [];
   state.certificateForm = { employeeId: null, name: "", expiry: "", image: "" };
   state.achievements = [];
@@ -752,13 +760,13 @@ function renderEmployeeShell() {
     const emp = state.employees[0];
     content = renderMyTasks({ tasks: emp ? emp.tasks : [] });
   } else if (myScreen === "my-worklog") {
-    content = renderMyWorkLog({ stations: state.meta.stations, logs: state.workLogs, form: state.myWorkLogForm });
+    content = renderMyWorkLog({ stations: state.meta.stations, logs: state.workLogs, form: state.myWorkLogForm, hazardTypes: state.meta.hazardTypes });
   } else {
     const emp = state.employees[0];
     if (emp) {
       const certs = state.certificates.filter((c) => c.employeeId === emp.id);
       const achievements = state.achievements.filter((a) => a.employeeId === emp.id);
-      content = renderDetail({ emp, certificates: certs, achievements, readOnly: true });
+      content = renderDetail({ emp, certificates: certs, achievements, readOnly: true, hazardTypes: state.meta.hazardTypes });
     }
   }
 
@@ -834,13 +842,13 @@ function renderShell() {
   } else if (screen === "attendance") {
     content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
   } else if (screen === "stations") {
-    content = renderStations({ stations: state.meta.stations, form: state.stationForm });
+    content = renderStations({ stations: state.meta.stations, form: state.stationForm, hazardTypes: state.meta.hazardTypes });
   } else if (screen === "certificates") {
     content = renderCertificates({ employees: state.employees, certificates: state.certificates, form: state.certificateForm });
   } else if (screen === "achievements") {
     content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm });
   } else if (screen === "worklog") {
-    content = renderWorkLog({ employees: state.employees, stations: state.meta.stations, logs: state.workLogs, form: state.workLogForm });
+    content = renderWorkLog({ employees: state.employees, stations: state.meta.stations, logs: state.workLogs, form: state.workLogForm, hazardTypes: state.meta.hazardTypes });
   } else if (screen === "users" && isAdmin) {
     content = renderUsers({ users: state.users, lines: state.meta.lines, employees: state.employees, userForm: state.userForm, lineForm: state.lineForm });
   } else if (screen === "form" && state.draft) {
@@ -851,7 +859,7 @@ function renderShell() {
       state.selId = emp.id;
       const certs = state.certificates.filter((c) => c.employeeId === emp.id);
       const achievements = state.achievements.filter((a) => a.employeeId === emp.id);
-      content = renderDetail({ emp, certificates: certs, achievements });
+      content = renderDetail({ emp, certificates: certs, achievements, hazardTypes: state.meta.hazardTypes });
     }
   }
 
@@ -971,6 +979,7 @@ appEl.addEventListener("click", (e) => {
   else if (action === "cancel-station-edit") cancelStationEdit();
   else if (action === "save-station") saveStation();
   else if (action === "delete-station") deleteStation(actionEl.dataset.id);
+  else if (action === "toggle-station-hazard") toggleStationHazard(actionEl.dataset.key);
   else if (action === "add-certificate") addCertificate();
   else if (action === "delete-certificate") deleteCertificate(actionEl.dataset.id);
   else if (action === "add-achievement") addAchievement();

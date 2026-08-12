@@ -81,8 +81,11 @@ const SCHEMA_SQL = `
     code TEXT NOT NULL,
     name TEXT NOT NULL,
     image TEXT NOT NULL DEFAULT '',
-    sort_order INTEGER NOT NULL DEFAULT 0
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    hazards JSONB NOT NULL DEFAULT '[]'
   );
+
+  ALTER TABLE stations ADD COLUMN IF NOT EXISTS hazards JSONB NOT NULL DEFAULT '[]';
 
   CREATE TABLE IF NOT EXISTS certificates (
     id TEXT PRIMARY KEY,

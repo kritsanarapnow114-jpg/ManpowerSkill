@@ -4,7 +4,7 @@ const express = require("express");
 const { pool, ready } = require("../db");
 const {
   G1_AXES_BY_POSITION, G2_AXES_BY_POSITION, DEFAULT_POSITION, POSITIONS, LEVELS, GENDERS,
-  ATTENDANCE_TYPES, DEFAULT_LEAVE_QUOTA, TASK_LEVELS, STATION_LEVELS,
+  ATTENDANCE_TYPES, DEFAULT_LEAVE_QUOTA, TASK_LEVELS, STATION_LEVELS, HAZARD_TYPES,
 } = require("../labels");
 
 const router = express.Router();
@@ -13,7 +13,7 @@ router.get("/", async (req, res, next) => {
   try {
     await ready();
     const { rows } = await pool.query("SELECT * FROM stations ORDER BY sort_order, code");
-    const stations = rows.map((r) => ({ id: r.id, code: r.code, name: r.name, image: r.image }));
+    const stations = rows.map((r) => ({ id: r.id, code: r.code, name: r.name, image: r.image, hazards: r.hazards || [] }));
 
     const { rows: posRows } = await pool.query(
       "SELECT DISTINCT position FROM employees WHERE position <> '' ORDER BY position"
@@ -31,6 +31,7 @@ router.get("/", async (req, res, next) => {
       levels: LEVELS,
       taskLevels: TASK_LEVELS,
       stationLevels: STATION_LEVELS,
+      hazardTypes: HAZARD_TYPES,
       genders: GENDERS,
       attendanceTypes: ATTENDANCE_TYPES,
       defaultLeaveQuota: DEFAULT_LEAVE_QUOTA,

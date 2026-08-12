@@ -23,8 +23,12 @@ export function renderMyTasks({ tasks }) {
   return `<div><div class="task-card-list">${cards || `<div class="task-empty" style="margin-top:16px">ยังไม่มีงานที่ได้รับมอบหมาย</div>`}</div></div>`;
 }
 
-export function renderMyWorkLog({ stations, logs, form }) {
-  const stnOptions = stations.map((s) => `<option value="${escapeHtml(s.id)}" ${form.stationId === s.id ? "selected" : ""}>${escapeHtml(s.name)}</option>`).join("");
+export function renderMyWorkLog({ stations, logs, form, hazardTypes = [] }) {
+  const hazardEmojiByKey = Object.fromEntries(hazardTypes.map((h) => [h.key, h.emoji]));
+  const stnOptions = stations.map((s) => {
+    const emojis = (s.hazards || []).map((k) => hazardEmojiByKey[k]).filter(Boolean).join("");
+    return `<option value="${escapeHtml(s.id)}" ${form.stationId === s.id ? "selected" : ""}>${emojis ? emojis + " " : ""}${escapeHtml(s.name)}</option>`;
+  }).join("");
   const totalHours = logs.reduce((s, l) => s + l.hours, 0);
   const stnById = Object.fromEntries(stations.map((s) => [s.id, s]));
 

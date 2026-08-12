@@ -139,6 +139,17 @@ export function isSafeLink(url) {
   return typeof url === "string" && /^https?:\/\//i.test(url);
 }
 
+// Renders a station's hazard keys as small emoji badges with a Thai/English tooltip.
+export function hazardBadges(hazardKeys, hazardTypes) {
+  if (!hazardKeys || !hazardKeys.length) return "";
+  const byKey = Object.fromEntries((hazardTypes || []).map((h) => [h.key, h]));
+  return hazardKeys
+    .map((k) => byKey[k])
+    .filter(Boolean)
+    .map((h) => `<span class="hazard-badge" title="${escapeHtml(h.th)} · ${escapeHtml(h.en)}">${h.emoji}</span>`)
+    .join("");
+}
+
 export function certStatus(expiry) {
   if (!expiry) return { kind: "none", label: "ไม่มีวันหมดอายุ", color: "#8494a1" };
   const days = Math.floor((new Date(expiry + "T00:00:00") - new Date(new Date().toDateString())) / 86400000);

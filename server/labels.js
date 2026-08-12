@@ -84,6 +84,21 @@ const STATIONS = [
   { code: "ST-10", name: "Final · ตรวจปลายสาย" },
 ];
 
+// Hazard categories shown on stations/machines as an icon badge (safety awareness at a glance).
+const HAZARD_TYPES = [
+  { key: "mechanical", emoji: "⚙️", th: "เครื่องกล", en: "Mechanical" },
+  { key: "noise", emoji: "🔊", th: "เสียง", en: "Noise" },
+  { key: "movement", emoji: "🚜", th: "การเคลื่อนไหว/ยานพาหนะ", en: "Movement" },
+  { key: "gravity", emoji: "📦", th: "แรงโน้มถ่วง/ของตก", en: "Gravity" },
+  { key: "pressure", emoji: "💨", th: "แรงดัน", en: "Pressure" },
+  { key: "chemical", emoji: "🧪", th: "สารเคมี", en: "Chemical" },
+  { key: "radiation", emoji: "☢️", th: "รังสี", en: "Radiation" },
+  { key: "biological", emoji: "🦠", th: "ชีวภาพ", en: "Biological" },
+  { key: "electrical", emoji: "⚡", th: "ไฟฟ้า", en: "Electrical" },
+  { key: "temperature", emoji: "🌡️", th: "อุณหภูมิ", en: "Temperature" },
+];
+const HAZARD_KEYS = HAZARD_TYPES.map((h) => h.key);
+
 const POSITIONS = ["Material Handler", "Material Handler (Cert Forklift)", "Material Handler Shift Leader"];
 
 const LEVELS = ["Basic", "Advance", "Expert"];
@@ -115,5 +130,5 @@ const STATION_LEVELS = [
 module.exports = {
   G1_AXES_BY_POSITION, G2_AXES_BY_POSITION, DEFAULT_POSITION, g1AxesFor, g2AxesFor,
   STATIONS, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA,
-  TASK_LEVELS, TASK_LEVEL_WEIGHT, TASK_SKILL_BUMP, STATION_LEVELS,
+  TASK_LEVELS, TASK_LEVEL_WEIGHT, TASK_SKILL_BUMP, STATION_LEVELS, HAZARD_TYPES, HAZARD_KEYS,
 };

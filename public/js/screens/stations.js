@@ -1,7 +1,7 @@
-import { escapeHtml } from "../format.js";
+import { escapeHtml, hazardBadges } from "../format.js";
 import { icons } from "../icons.js";
 
-export function renderStations({ stations, form }) {
+export function renderStations({ stations, form, hazardTypes }) {
   const isEditing = !!form.editingId;
 
   const cards = stations.map((s) => `
@@ -10,6 +10,7 @@ export function renderStations({ stations, form }) {
       <div class="station-manage-body">
         <div class="station-manage-code">${escapeHtml(s.code)}</div>
         <div class="station-manage-name">${escapeHtml(s.name)}</div>
+        ${s.hazards && s.hazards.length ? `<div class="hazard-badge-row">${hazardBadges(s.hazards, hazardTypes)}</div>` : ""}
       </div>
       <div class="station-manage-actions">
         <button class="btn-edit-row" data-action="edit-station" data-id="${escapeHtml(s.id)}">แก้ไข</button>
@@ -17,6 +18,14 @@ export function renderStations({ stations, form }) {
       </div>
     </div>
   `).join("");
+
+  const hazardChips = (hazardTypes || []).map((h) => {
+    const active = form.hazards.includes(h.key);
+    const style = active
+      ? `border-color:#dc2626;background:#dc2626;color:#fff`
+      : `border-color:#dbe3e9;background:#f5f8fa;color:#5a6a78`;
+    return `<button type="button" class="hazard-chip-btn${active ? " active" : ""}" style="${style}" data-action="toggle-station-hazard" data-key="${escapeHtml(h.key)}" title="${escapeHtml(h.en)}">${h.emoji} ${escapeHtml(h.th)}</button>`;
+  }).join("");
 
   return `
     <div>
@@ -34,6 +43,10 @@ export function renderStations({ stations, form }) {
           </label>
           <button class="btn-gradient" data-action="save-station">${icons.plus} ${isEditing ? "บันทึก" : "เพิ่มสถานี"}</button>
           ${isEditing ? `<button class="btn-outline" data-action="cancel-station-edit">ยกเลิก</button>` : ""}
+        </div>
+        <div style="margin-top:14px">
+          <div class="field-label" style="margin-bottom:8px">อันตรายของเครื่องจักร <small>· Hazards</small></div>
+          <div class="hazard-chip-row">${hazardChips}</div>
         </div>
         ${form.image ? `<div class="station-manage-preview"><img src="${escapeHtml(form.image)}" alt=""><span>ตัวอย่างรูปที่เลือก</span></div>` : ""}
       </div>

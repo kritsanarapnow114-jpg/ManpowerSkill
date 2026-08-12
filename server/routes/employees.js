@@ -110,7 +110,7 @@ async function serialize(row) {
       const hours = stationHours[s.id] || 0;
       const trained = !!(entry && typeof entry === "object" && entry.trained);
       const level = stationLevelOf(trained, hours);
-      return { id: s.id, code: s.code, name: s.name, image: s.image, v: hours, trained, level: level.key, levelEn: level.en };
+      return { id: s.id, code: s.code, name: s.name, image: s.image, hazards: s.hazards || [], v: hours, trained, level: level.key, levelEn: level.en };
     }),
     stats: { today: row.stat_today, qc: row.stat_qc, rework: row.stat_rework, defect: row.stat_defect },
     pass: passOf(g1Values, g2Values),

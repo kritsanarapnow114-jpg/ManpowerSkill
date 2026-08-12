@@ -1,4 +1,4 @@
-import { lvlColor, escapeHtml, stationLevelOf, stationLevelColor } from "../format.js";
+import { lvlColor, escapeHtml, stationLevelOf, stationLevelColor, hazardBadges } from "../format.js";
 import { radarSVG } from "../radar.js";
 
 export function renderForm({ draft, meta, currentUser }) {
@@ -31,7 +31,7 @@ export function renderForm({ draft, meta, currentUser }) {
     return `
       <div class="station-form-row">
         ${thumb}
-        <span class="slider-label">${escapeHtml(station.name)}</span>
+        <span class="slider-label">${escapeHtml(station.name)}${station.hazards && station.hazards.length ? `<span class="hazard-badge-row">${hazardBadges(station.hazards, meta.hazardTypes)}</span>` : ""}</span>
         <label class="station-trained-check" title="ผ่านการอบรมพื้นฐาน">
           <input type="checkbox" ${entry.trained ? "checked" : ""} data-station-trained="${escapeHtml(station.id)}">
           <span>อบรมแล้ว</span>

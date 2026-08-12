@@ -1,7 +1,7 @@
 import { avatarBg, initials, escapeHtml } from "../format.js";
 import { icons } from "../icons.js";
 
-export function renderWorkLog({ employees, stations, logs, form }) {
+export function renderWorkLog({ employees, stations, logs, form, hazardTypes = [] }) {
   const today = new Date().toISOString().slice(0, 10);
   const todayLogs = logs.filter((l) => l.date === today);
   const todayEmpIds = new Set(todayLogs.map((l) => l.employeeId));
@@ -14,8 +14,12 @@ export function renderWorkLog({ employees, stations, logs, form }) {
   const empOptions = employees
     .map((e) => `<option value="${escapeHtml(e.id)}" ${form.employeeId === e.id ? "selected" : ""}>${escapeHtml(e.empCode + " · " + e.nameEn)}</option>`)
     .join("");
+  const hazardEmojiByKey = Object.fromEntries(hazardTypes.map((h) => [h.key, h.emoji]));
   const stnOptions = stations
-    .map((s) => `<option value="${escapeHtml(s.id)}" ${form.stationId === s.id ? "selected" : ""}>${escapeHtml(s.name)}</option>`)
+    .map((s) => {
+      const emojis = (s.hazards || []).map((k) => hazardEmojiByKey[k]).filter(Boolean).join("");
+      return `<option value="${escapeHtml(s.id)}" ${form.stationId === s.id ? "selected" : ""}>${emojis ? emojis + " " : ""}${escapeHtml(s.name)}</option>`;
+    })
     .join("");
 
   const todayCards = todayLogs.map((l) => {
