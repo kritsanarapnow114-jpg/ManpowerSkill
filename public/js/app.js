@@ -63,10 +63,17 @@ const PAGE_MAP = {
   users: ["จัดการผู้ใช้งาน", "Manage accounts"],
   "my-tasks": ["งานของฉัน", "My tasks"],
   "my-worklog": ["บันทึกชั่วโมงของฉัน", "My work log"],
+  "team-tasks": ["สั่งงานทีม", "Assign & manage team tasks"],
 };
 
 function findEmployee(id) {
   return state.employees.find((e) => e.id === id) || state.employees[0] || null;
+}
+
+// For an "employee"-role login, state.employees may hold more than just their own record (a
+// team lead's teammates are included too), so their own record isn't reliably index 0.
+function findSelf() {
+  return state.employees.find((e) => e.id === state.currentUser.employeeId) || null;
 }
 
 function go(screen) {
@@ -99,6 +106,9 @@ function draftFromEmployee(emp) {
     g2: emp.g2.map((a) => a.v),
     st: Object.fromEntries(emp.st.map((s) => [s.id, { hours: s.v, trained: s.trained }])),
     stats: { ...emp.stats },
+    isTeamLead: !!emp.isTeamLead,
+    teamMemberIds: emp.teamMemberIds ? [...emp.teamMemberIds] : [],
+    teamSearch: "",
   };
 }
 
@@ -133,6 +143,9 @@ function addNew() {
     g2: g2Axes.map(() => 0),
     st: Object.fromEntries(state.meta.stations.map((s) => [s.id, { hours: 0, trained: false }])),
     stats: { today: "0/0", qc: "0/0", rework: "0/0", defect: "0/0" },
+    isTeamLead: false,
+    teamMemberIds: [],
+    teamSearch: "",
   };
   state.screen = "form";
   render();
@@ -143,6 +156,7 @@ async function saveForm() {
   const payload = {
     name: d.name, nameEn: d.nameEn, nickname: d.nickname, photo: d.photo, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
     lineId: d.lineId, leaveQuota: d.leaveQuota, g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
+    isTeamLead: d.isTeamLead, teamMemberIds: d.teamMemberIds,
   };
   try {
     const saved = d.isNew ? await api.createEmployee(payload) : await api.updateEmployee(d.id, payload);
@@ -596,7 +610,7 @@ async function refreshMyData() {
   state.employees = employees;
   state.tasks = tasks;
   state.workLogs = workLogs;
-  state.selId = employees[0] ? employees[0].id : null;
+  state.selId = state.currentUser.employeeId;
 }
 
 async function myCompleteTask(taskId) {
@@ -691,7 +705,7 @@ async function loadAppData() {
     state.certificates = certificates;
     state.achievements = achievements;
     state.workLogs = workLogs;
-    state.selId = employees[0] ? employees[0].id : null;
+    state.selId = state.currentUser.role === "employee" ? state.currentUser.employeeId : (employees[0] ? employees[0].id : null);
     state.attendanceForm.employeeId = state.selId;
     state.certificateForm.employeeId = state.selId;
     state.achievementForm.employeeId = state.selId;
@@ -750,19 +764,23 @@ setUnauthorizedHandler(() => {
 
 function renderEmployeeShell() {
   const { screen } = state;
-  const pg = PAGE_MAP[screen] || PAGE_MAP.detail;
-  const myScreen = screen === "my-tasks" || screen === "my-worklog" ? screen : "detail";
+  const self = findSelf();
+  const isLead = !!(self && self.isTeamLead);
+  const validScreens = ["my-tasks", "my-worklog", ...(isLead ? ["team-tasks"] : [])];
+  const myScreen = validScreens.includes(screen) ? screen : "detail";
+  const pg = PAGE_MAP[myScreen] || PAGE_MAP.detail;
 
   let content = "";
   if (state.loading) {
     content = `<div class="card">กำลังโหลดข้อมูล...</div>`;
+  } else if (myScreen === "team-tasks") {
+    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true });
   } else if (myScreen === "my-tasks") {
-    const emp = state.employees[0];
-    content = renderMyTasks({ tasks: emp ? emp.tasks : [] });
+    content = renderMyTasks({ tasks: self ? self.tasks : [] });
   } else if (myScreen === "my-worklog") {
     content = renderMyWorkLog({ stations: state.meta.stations, logs: state.workLogs, form: state.myWorkLogForm, hazardTypes: state.meta.hazardTypes });
   } else {
-    const emp = state.employees[0];
+    const emp = self;
     if (emp) {
       const certs = state.certificates.filter((c) => c.employeeId === emp.id);
       const achievements = state.achievements.filter((a) => a.employeeId === emp.id);
@@ -789,6 +807,11 @@ function renderEmployeeShell() {
         <button class="nav-btn${myScreen === "my-worklog" ? " active" : ""}" data-nav="my-worklog">
           ${icons.worklog}<span>บันทึกชั่วโมงของฉัน<small>My work log</small></span>
         </button>
+        ${isLead ? `
+          <button class="nav-btn${myScreen === "team-tasks" ? " active" : ""}" data-nav="team-tasks">
+            ${icons.tasks}<span>สั่งงานทีม<small>Team tasks</small></span>
+          </button>
+        ` : ""}
         <div class="sidebar-footer">
           <div class="sidebar-user">
             <div class="sidebar-user-info">
@@ -852,7 +875,7 @@ function renderShell() {
   } else if (screen === "users" && isAdmin) {
     content = renderUsers({ users: state.users, lines: state.meta.lines, employees: state.employees, userForm: state.userForm, lineForm: state.lineForm });
   } else if (screen === "form" && state.draft) {
-    content = renderForm({ draft: state.draft, meta: state.meta, currentUser: state.currentUser });
+    content = renderForm({ draft: state.draft, meta: state.meta, currentUser: state.currentUser, employees: state.employees });
   } else {
     const emp = findEmployee(state.selId);
     if (emp) {
@@ -969,6 +992,15 @@ appEl.addEventListener("click", (e) => {
     state.taskForm.employeeIds = state.taskForm.employeeIds.filter((id) => id !== actionEl.dataset.id);
     render();
   }
+  else if (action === "pick-team-member") {
+    if (state.draft && !state.draft.teamMemberIds.includes(actionEl.dataset.id)) state.draft.teamMemberIds.push(actionEl.dataset.id);
+    if (state.draft) state.draft.teamSearch = "";
+    render();
+  }
+  else if (action === "unpick-team-member") {
+    if (state.draft) state.draft.teamMemberIds = state.draft.teamMemberIds.filter((id) => id !== actionEl.dataset.id);
+    render();
+  }
   else if (action === "add-task") addTask();
   else if (action === "complete-task") toggleTaskDone(actionEl.dataset.taskId, true);
   else if (action === "reopen-task") toggleTaskDone(actionEl.dataset.taskId, false);
@@ -1018,6 +1050,13 @@ appEl.addEventListener("input", (e) => {
     state.taskForm.empSearch = t.value;
     const box = document.getElementById("task-emp-suggestions");
     if (box) box.innerHTML = renderEmpSuggestionItems(state.employees, t.value, state.taskForm.employeeIds);
+  } else if (t.id === "team-member-search") {
+    if (state.draft) state.draft.teamSearch = t.value;
+    const box = document.getElementById("team-member-suggestions");
+    if (box && state.draft) {
+      const excludeIds = [...state.draft.teamMemberIds, state.draft.id].filter(Boolean);
+      box.innerHTML = renderEmpSuggestionItems(state.employees, t.value, excludeIds, "pick-team-member");
+    }
   } else if (t.id === "att-note-input") {
     state.attendanceForm.note = t.value;
   } else if (t.id === "stn-code-input") {
@@ -1127,6 +1166,9 @@ appEl.addEventListener("change", (e) => {
     state.userForm.lineId = t.value;
   } else if (t.id === "user-employee-select") {
     state.userForm.employeeId = t.value;
+  } else if (t.id === "team-lead-checkbox") {
+    if (state.draft) state.draft.isTeamLead = t.checked;
+    render();
   } else if (t.id === "employee-line-select") {
     setDraftField("lineId", t.value);
   } else if (t.id === "my-wl-station-select") {

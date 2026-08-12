@@ -3,6 +3,7 @@
 const express = require("express");
 const { pool, ready } = require("../db");
 const { TASK_LEVELS, TASK_SKILL_BUMP, g1AxesFor, g2AxesFor } = require("../labels");
+const { fetchTeamMemberIds, isTeamLead } = require("../teams");
 
 const router = express.Router();
 
@@ -46,6 +47,15 @@ async function taskInvolvesEmployee(taskId, employeeId) {
   return rows.length > 0;
 }
 
+// Whether every assignee of a task is within an allowed set of employee ids - used to let a
+// team-lead employee manage (patch/delete) tasks assigned entirely within their own team.
+async function taskAssigneesWithinSet(taskId, allowedIds) {
+  const { rows } = await pool.query("SELECT employee_id FROM task_assignments WHERE task_id = $1", [taskId]);
+  if (!rows.length) return false;
+  const allowed = new Set(allowedIds);
+  return rows.every((r) => allowed.has(r.employee_id));
+}
+
 router.get("/", async (req, res, next) => {
   try {
     let whereClause = "";
@@ -54,8 +64,9 @@ router.get("/", async (req, res, next) => {
       whereClause = "WHERE t.id IN (SELECT task_id FROM task_assignments ta2 JOIN employees e2 ON e2.id = ta2.employee_id WHERE e2.line_id = $1)";
       params = [req.user.lineId];
     } else if (req.user.role === "employee") {
-      whereClause = "WHERE t.id IN (SELECT task_id FROM task_assignments ta2 WHERE ta2.employee_id = $1)";
-      params = [req.user.employeeId];
+      const memberIds = await fetchTeamMemberIds(req.user.employeeId);
+      whereClause = "WHERE t.id IN (SELECT task_id FROM task_assignments ta2 WHERE ta2.employee_id = ANY($1))";
+      params = [[req.user.employeeId, ...memberIds]];
     }
     const { rows } = await pool.query(
       `SELECT t.id, t.title, t.due, t.level, t.axis_group, t.axis_index,
@@ -80,7 +91,14 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    if (req.user.role === "employee") return res.status(403).json({ error: "พนักงานไม่สามารถมอบหมายงานได้" });
+    let teamMemberIds = [];
+    if (req.user.role === "employee") {
+      if (!(await isTeamLead(req.user.employeeId))) {
+        return res.status(403).json({ error: "พนักงานไม่สามารถมอบหมายงานได้" });
+      }
+      teamMemberIds = await fetchTeamMemberIds(req.user.employeeId);
+    }
+
     const { employeeIds, title, due, level, axisGroup, axisIndex } = req.body || {};
     const ids = Array.isArray(employeeIds) ? [...new Set(employeeIds)] : [];
     if (!ids.length) return res.status(400).json({ error: "employeeIds must be a non-empty array" });
@@ -89,8 +107,14 @@ router.post("/", async (req, res, next) => {
 
     const empCheck = await pool.query("SELECT id, line_id, position FROM employees WHERE id = ANY($1)", [ids]);
     if (empCheck.rows.length !== ids.length) return res.status(400).json({ error: "Some employeeIds are invalid" });
-    if (req.user.role !== "admin" && empCheck.rows.some((r) => r.line_id !== req.user.lineId)) {
+    if (req.user.role === "shift_leader" && empCheck.rows.some((r) => r.line_id !== req.user.lineId)) {
       return res.status(403).json({ error: "คุณมอบหมายงานได้เฉพาะพนักงานในสายของตัวเองเท่านั้น" });
+    }
+    if (req.user.role === "employee") {
+      const allowed = new Set([req.user.employeeId, ...teamMemberIds]);
+      if (ids.some((eid) => !allowed.has(eid))) {
+        return res.status(403).json({ error: "คุณมอบหมายงานได้เฉพาะสมาชิกในทีมของคุณเท่านั้น" });
+      }
     }
 
     let axGroup = null;
@@ -130,7 +154,10 @@ router.patch("/:id", async (req, res, next) => {
       return res.status(404).json({ error: "Task not found" });
     }
     if (req.user.role === "employee" && !(await taskInvolvesEmployee(req.params.id, req.user.employeeId))) {
-      return res.status(404).json({ error: "Task not found" });
+      const lead = await isTeamLead(req.user.employeeId);
+      const memberIds = lead ? await fetchTeamMemberIds(req.user.employeeId) : [];
+      const withinTeam = lead && (await taskAssigneesWithinSet(req.params.id, [req.user.employeeId, ...memberIds]));
+      if (!withinTeam) return res.status(404).json({ error: "Task not found" });
     }
     if (!req.body || typeof req.body.done !== "boolean") return res.status(400).json({ error: "done must be a boolean" });
 
@@ -152,9 +179,14 @@ router.patch("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
-    if (req.user.role === "employee") return res.status(403).json({ error: "พนักงานไม่สามารถลบงานได้" });
     if (req.user.role === "shift_leader" && !(await taskInvolvesLine(req.params.id, req.user.lineId))) {
       return res.status(404).json({ error: "Task not found" });
+    }
+    if (req.user.role === "employee") {
+      const lead = await isTeamLead(req.user.employeeId);
+      const memberIds = lead ? await fetchTeamMemberIds(req.user.employeeId) : [];
+      const withinTeam = lead && (await taskAssigneesWithinSet(req.params.id, [req.user.employeeId, ...memberIds]));
+      if (!withinTeam) return res.status(403).json({ error: "พนักงานไม่สามารถลบงานได้" });
     }
     const result = await pool.query("DELETE FROM tasks WHERE id = $1", [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: "Task not found" });

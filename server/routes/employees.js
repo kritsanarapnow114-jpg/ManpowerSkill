@@ -4,6 +4,7 @@ const express = require("express");
 const { pool, ready } = require("../db");
 const { g1AxesFor, g2AxesFor, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
 const { clamp, avgOf, passOf, stationLevelOf } = require("../compute");
+const { fetchTeamMemberIds, syncTeamMembers } = require("../teams");
 
 const router = express.Router();
 
@@ -90,6 +91,7 @@ async function serialize(row) {
   const used = await fetchLeaveUsed(row.id);
   const stations = await fetchStations();
   const stationHours = await fetchStationHours(row.id);
+  const teamMemberIds = await fetchTeamMemberIds(row.id);
 
   return {
     id: row.id,
@@ -103,6 +105,8 @@ async function serialize(row) {
     empCode: row.emp_code,
     join: row.join_year,
     lineId: row.line_id,
+    isTeamLead: !!row.is_team_lead,
+    teamMemberIds,
     g1: g1AxesFor(row.position).map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
     g2: g2AxesFor(row.position).map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
     st: stations.map((s) => {
@@ -197,6 +201,9 @@ function validateBody(body, { partial } = {}) {
     if (bad) errors.push("leaveQuota.vacation/sick/personal must be non-negative numbers");
     else out.leaveQuota = { vacation: clamp0(lq.vacation), sick: clamp0(lq.sick), personal: clamp0(lq.personal) };
   }
+  if (need("isTeamLead")) {
+    out.isTeamLead = !!body.isTeamLead;
+  }
   if (need("stats")) {
     const stats = body.stats || {};
     out.stats = {
@@ -210,6 +217,21 @@ function validateBody(body, { partial } = {}) {
   return { errors, out };
 }
 
+// Validates a raw teamMemberIds array against real employee ids. Returns ids:undefined when the
+// field was omitted (leave membership untouched), so callers can distinguish "not provided" from
+// "explicitly cleared" ([]).
+async function validTeamMemberIds(rawIds, excludeId) {
+  if (rawIds === undefined) return { ids: undefined, error: null };
+  if (!Array.isArray(rawIds) || !rawIds.every((x) => typeof x === "string")) {
+    return { ids: null, error: "teamMemberIds must be an array of employee ids" };
+  }
+  const ids = [...new Set(rawIds)].filter((x) => x !== excludeId);
+  if (!ids.length) return { ids: [], error: null };
+  const { rows } = await pool.query("SELECT id FROM employees WHERE id = ANY($1)", [ids]);
+  if (rows.length !== ids.length) return { ids: null, error: "Some teamMemberIds are invalid" };
+  return { ids, error: null };
+}
+
 router.get("/", async (req, res, next) => {
   try {
     let sql = "SELECT * FROM employees ORDER BY emp_code";
@@ -218,8 +240,9 @@ router.get("/", async (req, res, next) => {
       sql = "SELECT * FROM employees WHERE line_id = $1 ORDER BY emp_code";
       params = [req.user.lineId];
     } else if (req.user.role === "employee") {
-      sql = "SELECT * FROM employees WHERE id = $1";
-      params = [req.user.employeeId];
+      const memberIds = await fetchTeamMemberIds(req.user.employeeId);
+      sql = "SELECT * FROM employees WHERE id = ANY($1) ORDER BY emp_code";
+      params = [[req.user.employeeId, ...memberIds]];
     }
     const { rows } = await pool.query(sql, params);
     res.json(await Promise.all(rows.map(serialize)));
@@ -236,7 +259,8 @@ router.get("/:id", async (req, res, next) => {
       return res.status(404).json({ error: "Employee not found" });
     }
     if (req.user.role === "employee" && req.params.id !== req.user.employeeId) {
-      return res.status(404).json({ error: "Employee not found" });
+      const memberIds = await fetchTeamMemberIds(req.user.employeeId);
+      if (!memberIds.includes(req.params.id)) return res.status(404).json({ error: "Employee not found" });
     }
     res.json(await serialize(rows[0]));
   } catch (err) {
@@ -256,17 +280,21 @@ router.post("/", async (req, res, next) => {
       const lineCheck = await pool.query("SELECT id FROM lines WHERE id = $1", [lineId]);
       if (!lineCheck.rows[0]) errors.push("Invalid lineId");
     }
-    if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
     const id = "E" + Date.now();
+    const { ids: teamMemberIds, error: teamErr } = await validTeamMemberIds(req.body && req.body.teamMemberIds, id);
+    if (teamErr) errors.push(teamErr);
+    if (errors.length) return res.status(400).json({ error: errors.join("; ") });
+
     await pool.query(
-      `INSERT INTO employees (id, name, name_en, nickname, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal, line_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+      `INSERT INTO employees (id, name, name_en, nickname, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal, line_id, is_team_lead)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
       [id, out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
-        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId]
+        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId, out.isTeamLead]
     );
+    if (teamMemberIds !== undefined) await syncTeamMembers(id, teamMemberIds);
 
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [id]);
     res.status(201).json(await serialize(rows[0]));
@@ -293,18 +321,22 @@ router.put("/:id", async (req, res, next) => {
       const lineCheck = await pool.query("SELECT id FROM lines WHERE id = $1", [lineId]);
       if (!lineCheck.rows[0]) errors.push("Invalid lineId");
     }
+
+    const { ids: teamMemberIds, error: teamErr } = await validTeamMemberIds(req.body && req.body.teamMemberIds, req.params.id);
+    if (teamErr) errors.push(teamErr);
     if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
     await pool.query(
       `UPDATE employees SET name=$1, name_en=$2, nickname=$3, photo=$4, gender=$5, position=$6, level=$7, emp_code=$8,
          join_year=$9, g1=$10, g2=$11, st=$12, stat_today=$13, stat_qc=$14, stat_rework=$15, stat_defect=$16,
-         leave_quota_vacation=$17, leave_quota_sick=$18, leave_quota_personal=$19, line_id=$20
-       WHERE id=$21`,
+         leave_quota_vacation=$17, leave_quota_sick=$18, leave_quota_personal=$19, line_id=$20, is_team_lead=$21
+       WHERE id=$22`,
       [out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
-        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId, req.params.id]
+        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId, out.isTeamLead, req.params.id]
     );
+    if (teamMemberIds !== undefined) await syncTeamMembers(req.params.id, teamMemberIds);
 
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [req.params.id]);
     res.json(await serialize(rows[0]));

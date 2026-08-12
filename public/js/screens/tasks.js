@@ -1,7 +1,7 @@
 import { avatarBg, initials, taskColor, taskLevelColor, taskPct, isTaskOverdue, escapeHtml } from "../format.js";
 import { icons } from "../icons.js";
 
-export function renderEmpSuggestionItems(employees, query, excludeIds) {
+export function renderEmpSuggestionItems(employees, query, excludeIds, action = "pick-task-emp") {
   const q = (query || "").trim().toLowerCase();
   if (!q) return "";
   const excluded = new Set(excludeIds);
@@ -13,7 +13,7 @@ export function renderEmpSuggestionItems(employees, query, excludeIds) {
   )).slice(0, 8);
   if (!matches.length) return `<div class="task-emp-suggest-empty">ไม่พบพนักงาน</div>`;
   return matches.map((e) => `
-    <div class="task-emp-suggest-item" data-action="pick-task-emp" data-id="${escapeHtml(e.id)}">
+    <div class="task-emp-suggest-item" data-action="${escapeHtml(action)}" data-id="${escapeHtml(e.id)}">
       <div class="avatar-sm" style="background:${avatarBg(e.level)}">${escapeHtml(initials(e.nameEn))}</div>
       <div style="min-width:0">
         <div class="list-name-en">${escapeHtml(e.empCode)} · ${escapeHtml(e.nameEn)}${e.nickname ? ` (${escapeHtml(e.nickname)})` : ""}</div>

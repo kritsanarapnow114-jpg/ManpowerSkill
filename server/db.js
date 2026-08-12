@@ -43,6 +43,15 @@ const SCHEMA_SQL = `
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS leave_quota_vacation INTEGER NOT NULL DEFAULT 10;
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS leave_quota_sick INTEGER NOT NULL DEFAULT 30;
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS leave_quota_personal INTEGER NOT NULL DEFAULT 6;
+  ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_team_lead BOOLEAN NOT NULL DEFAULT false;
+
+  -- Custom team membership: which employees a team-lead employee is allowed to assign/manage
+  -- tasks for. Independent of position/line - admin picks members explicitly per lead.
+  CREATE TABLE IF NOT EXISTS team_members (
+    leader_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    member_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    PRIMARY KEY (leader_id, member_id)
+  );
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo TEXT NOT NULL DEFAULT '';
   ALTER TABLE employees ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT '';
 

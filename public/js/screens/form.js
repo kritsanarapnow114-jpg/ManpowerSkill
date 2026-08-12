@@ -1,7 +1,8 @@
 import { lvlColor, escapeHtml, stationLevelOf, stationLevelColor, hazardBadges } from "../format.js";
 import { radarSVG } from "../radar.js";
+import { renderEmpSuggestionItems } from "./tasks.js";
 
-export function renderForm({ draft, meta, currentUser }) {
+export function renderForm({ draft, meta, currentUser, employees = [] }) {
   const isAdmin = currentUser && currentUser.role === "admin";
   const g1Axes = meta.g1AxesByPosition[draft.position] || meta.g1AxesByPosition[meta.defaultPosition];
   const g2Axes = meta.g2AxesByPosition[draft.position] || meta.g2AxesByPosition[meta.defaultPosition];
@@ -57,6 +58,14 @@ export function renderForm({ draft, meta, currentUser }) {
       : `border-color:#dbe3e9;background:#f5f8fa;color:#5a6a78`;
     return `<button class="level-btn${active ? " active" : ""}" style="${style}" data-action="set-gender" data-gender="${escapeHtml(g)}">${escapeHtml(g)}</button>`;
   }).join("");
+
+  const empById = Object.fromEntries(employees.map((e) => [e.id, e]));
+  const teamTags = (draft.teamMemberIds || []).map((id) => {
+    const e = empById[id];
+    if (!e) return "";
+    return `<span class="task-emp-tag">${escapeHtml(e.nickname || e.nameEn)}<button type="button" data-action="unpick-team-member" data-id="${escapeHtml(id)}">&times;</button></span>`;
+  }).join("");
+  const teamExcludeIds = [...(draft.teamMemberIds || []), draft.id].filter(Boolean);
 
   const radar1 = radarSVG(g1Axes.map((axis, i) => ({ label: axis.th, v: draft.g1[i] })), "#2f8fd0", "rgba(47,143,208,.18)");
   const radar2 = radarSVG(g2Axes.map((axis, i) => ({ label: axis.th, v: draft.g2[i] })), "#d99a17", "rgba(217,154,23,.26)");
@@ -122,6 +131,22 @@ export function renderForm({ draft, meta, currentUser }) {
             <div class="field-label" style="margin-bottom:8px">เพศ</div>
             <div class="level-select-row">${genderButtons}</div>
           </div>
+        </div>
+        <div style="margin-top:16px">
+          <label class="station-trained-check" style="cursor:pointer">
+            <input type="checkbox" ${draft.isTeamLead ? "checked" : ""} id="team-lead-checkbox">
+            <span style="font-weight:700;font-size:13px">เป็นหัวหน้าทีม (มอบหมายงานให้สมาชิกทีมได้) <small style="font-weight:400;color:#8494a1">· Team lead</small></span>
+          </label>
+          ${draft.isTeamLead ? `
+            <div style="margin-top:10px">
+              <div class="field-label" style="margin-bottom:8px">สมาชิกในทีม (พิมพ์ชื่อ/ชื่อเล่น/รหัสเพื่อค้นหา)</div>
+              <div class="task-emp-picker">
+                <input type="text" class="field-input" id="team-member-search" autocomplete="off" placeholder="พิมพ์เพื่อค้นหาพนักงาน..." value="${escapeHtml(draft.teamSearch || "")}">
+                <div class="task-emp-suggest-list" id="team-member-suggestions">${renderEmpSuggestionItems(employees, draft.teamSearch, teamExcludeIds, "pick-team-member")}</div>
+              </div>
+              ${teamTags ? `<div class="task-emp-tags">${teamTags}</div>` : `<div style="font-size:12px;color:#8494a1;margin-top:8px">ยังไม่ได้เลือกสมาชิกทีม</div>`}
+            </div>
+          ` : ""}
         </div>
       </div>
 
