@@ -38,7 +38,7 @@ const state = {
   certificates: [],
   certificateForm: { employeeId: null, name: "", expiry: "", image: "" },
   achievements: [],
-  achievementForm: { employeeId: null, title: "", date: todayISO(), note: "" },
+  achievementForm: { employeeId: null, title: "", date: todayISO(), note: "", axisGroup: "", axisIndex: null },
   workLogs: [],
   workLogForm: { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" },
   users: [],
@@ -471,15 +471,22 @@ async function addAchievement() {
   const title = (state.achievementForm.title || "").trim();
   if (!employeeId || !title) return;
   try {
-    const created = await api.createAchievement({
+    const payload = {
       employeeId,
       title,
       date: state.achievementForm.date || "",
       note: state.achievementForm.note || "",
-    });
+    };
+    if (state.achievementForm.axisGroup) {
+      payload.axisGroup = state.achievementForm.axisGroup;
+      payload.axisIndex = state.achievementForm.axisIndex;
+    }
+    const created = await api.createAchievement(payload);
     state.achievements.unshift(created);
     state.achievementForm.title = "";
     state.achievementForm.note = "";
+    state.achievementForm.axisGroup = "";
+    state.achievementForm.axisIndex = null;
     state.error = null;
   } catch (err) {
     state.error = "บันทึกผลงานไม่สำเร็จ: " + err.message;
@@ -691,7 +698,7 @@ function resetAppState() {
   state.certificates = [];
   state.certificateForm = { employeeId: null, name: "", expiry: "", image: "" };
   state.achievements = [];
-  state.achievementForm = { employeeId: null, title: "", date: todayISO(), note: "" };
+  state.achievementForm = { employeeId: null, title: "", date: todayISO(), note: "", axisGroup: "", axisIndex: null };
   state.workLogs = [];
   state.workLogForm = { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" };
   state.users = [];
@@ -879,7 +886,7 @@ function renderShell() {
   } else if (screen === "certificates") {
     content = renderCertificates({ employees: state.employees, certificates: state.certificates, form: state.certificateForm });
   } else if (screen === "achievements") {
-    content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm });
+    content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm, meta: state.meta });
   } else if (screen === "worklog") {
     content = renderWorkLog({ employees: state.employees, stations: state.meta.stations, logs: state.workLogs, form: state.workLogForm, hazardTypes: state.meta.hazardTypes });
   } else if (screen === "users" && isAdmin) {
@@ -1173,8 +1180,20 @@ appEl.addEventListener("change", (e) => {
       .catch((err) => { state.error = err.message; render(); });
   } else if (t.id === "ach-emp-select") {
     state.achievementForm.employeeId = t.value;
+    state.achievementForm.axisGroup = "";
+    state.achievementForm.axisIndex = null;
+    render();
   } else if (t.id === "ach-date-input") {
     state.achievementForm.date = t.value;
+  } else if (t.id === "ach-axis-select") {
+    if (!t.value) {
+      state.achievementForm.axisGroup = "";
+      state.achievementForm.axisIndex = null;
+    } else {
+      const [group, idx] = t.value.split(":");
+      state.achievementForm.axisGroup = group;
+      state.achievementForm.axisIndex = parseInt(idx, 10);
+    }
   } else if (t.id === "user-line-select") {
     state.userForm.lineId = t.value;
   } else if (t.id === "user-employee-select") {

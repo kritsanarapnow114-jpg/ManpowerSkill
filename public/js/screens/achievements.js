@@ -1,15 +1,35 @@
 import { avatarBg, initials, escapeHtml } from "../format.js";
 import { icons } from "../icons.js";
 
-export function renderAchievements({ employees, achievements, form }) {
+// Resolves an achievement's linked axis to its display label, if any - needs the owning
+// employee's position since axis meaning (and even which axes exist) differs by position.
+function axisLabel(meta, position, axisGroup, axisIndex) {
+  if (!axisGroup || axisIndex === null || axisIndex === undefined) return null;
+  const byPosition = axisGroup === "g1" ? meta.g1AxesByPosition : meta.g2AxesByPosition;
+  const axes = byPosition[position] || byPosition[meta.defaultPosition];
+  const axis = axes[axisIndex];
+  if (!axis) return null;
+  return `${axisGroup === "g1" ? "Advance" : "Skill"} · ${axis.en}`;
+}
+
+export function renderAchievements({ employees, achievements, form, meta }) {
   const empById = Object.fromEntries(employees.map((e) => [e.id, e]));
 
   const empOptions = employees
     .map((e) => `<option value="${escapeHtml(e.id)}" ${form.employeeId === e.id ? "selected" : ""}>${escapeHtml(e.empCode + " · " + e.nameEn)}</option>`)
     .join("");
 
+  const selectedEmp = empById[form.employeeId];
+  const axisG1 = selectedEmp ? (meta.g1AxesByPosition[selectedEmp.position] || meta.g1AxesByPosition[meta.defaultPosition]) : null;
+  const axisG2 = selectedEmp ? (meta.g2AxesByPosition[selectedEmp.position] || meta.g2AxesByPosition[meta.defaultPosition]) : null;
+  const axisOptions = [`<option value="">ไม่เกี่ยวข้องกับทักษะ (ทั่วไป)</option>`]
+    .concat(axisG1 ? axisG1.map((a, i) => `<option value="g1:${i}" ${form.axisGroup === "g1" && form.axisIndex === i ? "selected" : ""}>Advance · ${escapeHtml(a.en)}</option>`) : [])
+    .concat(axisG2 ? axisG2.map((a, i) => `<option value="g2:${i}" ${form.axisGroup === "g2" && form.axisIndex === i ? "selected" : ""}>Skill · ${escapeHtml(a.en)}</option>`) : [])
+    .join("");
+
   const rows = achievements.map((a) => {
     const emp = empById[a.employeeId];
+    const tag = emp ? axisLabel(meta, emp.position, a.axisGroup, a.axisIndex) : null;
     return `
       <div class="achievement-row">
         <div class="achievement-date">${escapeHtml(a.date || "—")}</div>
@@ -23,6 +43,7 @@ export function renderAchievements({ employees, achievements, form }) {
         <div class="achievement-body">
           <div class="achievement-title">${escapeHtml(a.title)}</div>
           ${a.note ? `<div class="achievement-note">${escapeHtml(a.note)}</div>` : ""}
+          ${tag ? `<div class="achievement-axis-tag">${escapeHtml(tag)}</div>` : ""}
         </div>
         <button class="btn-icon" title="ลบรายการ" data-action="delete-achievement" data-id="${escapeHtml(a.id)}">${icons.trash}</button>
       </div>
@@ -53,9 +74,14 @@ export function renderAchievements({ employees, achievements, form }) {
           </label>
           <button class="btn-gradient" data-action="add-achievement">${icons.plus} บันทึก</button>
         </div>
-        <label class="field-label" style="display:block;margin-top:14px">รายละเอียดเพิ่มเติม (ถ้ามี)
-          <input class="field-input" id="ach-note-input" value="${escapeHtml(form.note)}" placeholder="รายละเอียดเพิ่มเติม" style="margin-top:6px">
-        </label>
+        <div class="assign-row" style="margin-top:14px">
+          <label class="assign-field due" style="flex:1">ทักษะที่เกี่ยวข้อง (ถ้ามี)
+            <select class="field-input" id="ach-axis-select">${axisOptions}</select>
+          </label>
+          <label class="field-label" style="flex:2">รายละเอียดเพิ่มเติม (ถ้ามี)
+            <input class="field-input" id="ach-note-input" value="${escapeHtml(form.note)}" placeholder="รายละเอียดเพิ่มเติม" style="margin-top:6px">
+          </label>
+        </div>
       </div>
 
       <div class="card" style="padding:0;overflow:hidden;margin-top:18px">

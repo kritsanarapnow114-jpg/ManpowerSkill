@@ -114,8 +114,13 @@ const SCHEMA_SQL = `
     title TEXT NOT NULL,
     date TEXT NOT NULL DEFAULT '',
     note TEXT NOT NULL DEFAULT '',
+    axis_group TEXT,
+    axis_index INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+
+  ALTER TABLE achievements ADD COLUMN IF NOT EXISTS axis_group TEXT;
+  ALTER TABLE achievements ADD COLUMN IF NOT EXISTS axis_index INTEGER;
 
   -- Daily record of who worked which station and for how long; station proficiency hours
   -- are summed from these instead of being typed in directly.

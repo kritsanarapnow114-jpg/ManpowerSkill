@@ -41,7 +41,7 @@ async function fetchWindowedData(employeeId) {
       [employeeId, sinceDate, ["มาสาย", "ขาด"]]
     ),
     pool.query(
-      "SELECT COUNT(*)::int AS n FROM achievements WHERE employee_id = $1 AND date >= $2",
+      "SELECT axis_group, axis_index FROM achievements WHERE employee_id = $1 AND date >= $2",
       [employeeId, sinceDate]
     ),
     pool.query(
@@ -67,7 +67,7 @@ async function fetchWindowedData(employeeId) {
     tasks: relevantTasks,
     lateCount: byType["มาสาย"] || 0,
     absenceCount: byType["ขาด"] || 0,
-    achievementCount: achievementRows.rows[0].n,
+    achievements: achievementRows.rows,
     stationHours: workLogRows.rows,
   };
 }
@@ -96,8 +96,11 @@ function attendanceComponent(data) {
   return Math.max(0, Math.min(100, score));
 }
 
-function achievementComponent(data) {
-  return Math.max(0, Math.min(100, data.achievementCount * ACHIEVEMENT_CREDIT));
+// Only counts achievements explicitly tagged to this exact axis when logged - an achievement
+// left untagged (general recognition) or tagged to a different axis doesn't move this one.
+function achievementComponent(data, group, index) {
+  const count = data.achievements.filter((a) => a.axis_group === group && a.axis_index === index).length;
+  return Math.max(0, Math.min(100, count * ACHIEVEMENT_CREDIT));
 }
 
 function stationComponent(data, keywords) {
@@ -112,18 +115,18 @@ function stationComponent(data, keywords) {
 
 // The domain signal is what backs an axis when there's no task explicitly linked to it (or in
 // addition to one) - whichever real records come closest to what the axis actually measures.
-function domainComponent(axis, data) {
+function domainComponent(axis, data, group, index) {
   if (axis.signal === "attendance") return attendanceComponent(data);
   if (axis.signal === "station") {
     const station = stationComponent(data, axis.stationKeywords);
-    return station !== null ? station : achievementComponent(data);
+    return station !== null ? station : achievementComponent(data, group, index);
   }
-  return achievementComponent(data);
+  return achievementComponent(data, group, index);
 }
 
 function scoreOneAxis(axis, group, index, data) {
   const task = taskComponent(data.tasks, group, index);
-  const domain = domainComponent(axis, data);
+  const domain = domainComponent(axis, data, group, index);
   if (task === null) return domain;
   return Math.round(task * 0.5 + domain * 0.5);
 }

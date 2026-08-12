@@ -362,6 +362,7 @@ button { font-family: inherit; }
 .achievement-body { min-width: 0; }
 .achievement-title { font-weight: 600; color: #2a3a47; }
 .achievement-note { color: #8494a1; font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.achievement-axis-tag { display: inline-block; margin-top: 4px; padding: 2px 9px; border-radius: 999px; background: #eef2f5; color: #5a6a78; font-size: 11px; font-weight: 700; }
 
 .leave-balance-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .leave-balance-row { display: grid; grid-template-columns: 76px 1fr 48px; gap: 10px; align-items: center; font-size: 12.5px; }
