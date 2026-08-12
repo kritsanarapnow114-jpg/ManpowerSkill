@@ -12,6 +12,7 @@ app.use("/api/attendance", require("./routes/attendance"));
 app.use("/api/stations", require("./routes/stations"));
 app.use("/api/certificates", require("./routes/certificates"));
 app.use("/api/achievements", require("./routes/achievements"));
+app.use("/api/worklogs", require("./routes/worklogs"));
 
 app.use((err, req, res, next) => {
   if (err.type === "entity.too.large") {

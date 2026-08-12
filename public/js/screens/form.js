@@ -33,9 +33,7 @@ export function renderForm({ draft, meta }) {
           <input type="checkbox" ${entry.trained ? "checked" : ""} data-station-trained="${escapeHtml(station.id)}">
           <span>อบรมแล้ว</span>
         </label>
-        <input type="number" min="0" step="1" class="field-input station-hours-input" id="station-hours-${escapeHtml(station.id)}"
-          value="${entry.hours}" ${entry.trained ? "" : "disabled"} data-slider="st" data-station-id="${escapeHtml(station.id)}">
-        <span style="font-size:12px;color:#8494a1">ชม.</span>
+        <span class="station-hours-display">${entry.hours} ชม.</span>
         <span class="station-level-badge" id="slider-val-st-${escapeHtml(station.id)}" style="color:${color};background:${color}1a">${escapeHtml(level.en)}</span>
       </div>
     `;
@@ -131,10 +129,14 @@ export function renderForm({ draft, meta }) {
       </div>
 
       <div class="card" style="padding:18px 22px;margin-top:18px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <div style="font-weight:800;font-size:14px;color:#132530">ความชำนาญสถานี / เครื่องจักร</div>
-          <button class="btn-link" data-nav="stations">จัดการสถานี / อัปโหลดรูป →</button>
+          <div style="display:flex;gap:14px">
+            <button class="btn-link" data-nav="worklog">บันทึกชั่วโมงทำงาน →</button>
+            <button class="btn-link" data-nav="stations">จัดการสถานี / อัปโหลดรูป →</button>
+          </div>
         </div>
+        <div style="font-size:12px;color:#8494a1;margin-bottom:14px">ติ๊ก "อบรมแล้ว" เพื่อปลดล็อกสถานี ส่วนชั่วโมงคำนวณจากการบันทึกการทำงานรายวันอัตโนมัติ</div>
         <div class="station-form-grid">${stSliders}</div>
       </div>
     </div>

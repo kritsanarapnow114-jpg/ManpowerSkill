@@ -3,7 +3,7 @@
 const express = require("express");
 const { pool, ready } = require("../db");
 const { G1_AXES, G2_AXES, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
-const { clamp, clampHours, avgOf, passOf, stationLevelOf } = require("../compute");
+const { clamp, avgOf, passOf, stationLevelOf } = require("../compute");
 
 const router = express.Router();
 
@@ -63,6 +63,14 @@ async function fetchStations() {
   return rows;
 }
 
+async function fetchStationHours(employeeId) {
+  const { rows } = await pool.query(
+    "SELECT station_id, COALESCE(SUM(hours), 0)::float AS hours FROM work_logs WHERE employee_id = $1 GROUP BY station_id",
+    [employeeId]
+  );
+  return Object.fromEntries(rows.map((r) => [r.station_id, r.hours]));
+}
+
 async function fetchLeaveUsed(employeeId) {
   const { rows } = await pool.query(
     "SELECT type, COUNT(*)::int AS n FROM attendance WHERE employee_id = $1 AND type = ANY($2) GROUP BY type",
@@ -81,6 +89,7 @@ async function serialize(row) {
   const workload = await fetchWorkload(row.id);
   const used = await fetchLeaveUsed(row.id);
   const stations = await fetchStations();
+  const stationHours = await fetchStationHours(row.id);
 
   return {
     id: row.id,
@@ -97,7 +106,7 @@ async function serialize(row) {
     g2: G2_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
     st: stations.map((s) => {
       const entry = stValues[s.id];
-      const hours = entry && typeof entry === "object" ? clampHours(entry.hours) : 0;
+      const hours = stationHours[s.id] || 0;
       const trained = !!(entry && typeof entry === "object" && entry.trained);
       const level = stationLevelOf(trained, hours);
       return { id: s.id, code: s.code, name: s.name, image: s.image, v: hours, trained, level: level.key, levelEn: level.en };
@@ -173,7 +182,7 @@ function validateBody(body, { partial } = {}) {
       out.st = {};
       for (const [stationId, entry] of Object.entries(body.st)) {
         const e = entry && typeof entry === "object" ? entry : {};
-        out.st[stationId] = { hours: clampHours(e.hours), trained: !!e.trained };
+        out.st[stationId] = { trained: !!e.trained };
       }
     }
   }

@@ -101,6 +101,18 @@ const SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
 
+  -- Daily record of who worked which station and for how long; station proficiency hours
+  -- are summed from these instead of being typed in directly.
+  CREATE TABLE IF NOT EXISTS work_logs (
+    id TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    station_id TEXT NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    hours NUMERIC NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
   -- Tracks one-off data migrations that have no reliable structural marker to guard on.
   CREATE TABLE IF NOT EXISTS schema_flags (
     key TEXT PRIMARY KEY,
@@ -228,6 +240,33 @@ async function ensureSchema() {
       await client.query("INSERT INTO schema_flags (key) VALUES ('st_trained_gate') ON CONFLICT DO NOTHING");
     }
 
+    // One-time migration: station hours used to be typed directly into an employee's profile;
+    // they're now summed from work_logs (daily "who worked which station, how many hours"
+    // entries) so the number reflects actual logged work. Carry over any existing hours as a
+    // one-off "ยอดยกมา" log entry, then drop hours from st (only { trained } remains there).
+    const workLogSeedFlag = await client.query("SELECT 1 FROM schema_flags WHERE key = 'work_logs_seeded_from_st_hours'");
+    if (workLogSeedFlag.rows.length === 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const { rows: stHourRows } = await client.query("SELECT id, st FROM employees");
+      for (const row of stHourRows) {
+        const st = row.st || {};
+        const next = {};
+        for (const [sid, entry] of Object.entries(st)) {
+          const hours = entry && typeof entry === "object" ? Number(entry.hours) || 0 : 0;
+          const trained = !!(entry && typeof entry === "object" && entry.trained);
+          if (hours > 0 && stationIds.includes(sid)) {
+            await client.query(
+              "INSERT INTO work_logs (id, employee_id, station_id, date, hours, note) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING",
+              [`WLSEED-${row.id}-${sid}`, row.id, sid, today, hours, "ยอดยกมา"]
+            );
+          }
+          if (stationIds.includes(sid)) next[sid] = { trained };
+        }
+        await client.query("UPDATE employees SET st = $1 WHERE id = $2", [JSON.stringify(next), row.id]);
+      }
+      await client.query("INSERT INTO schema_flags (key) VALUES ('work_logs_seeded_from_st_hours') ON CONFLICT DO NOTHING");
+    }
+
     // One-time migration: %Skill judgment axes were replaced with a different, unrelated set of
     // categories, so old scores can't carry over — reset g2 to zeros sized to the new axis count.
     const { rows: g2Rows } = await client.query("SELECT id, g2 FROM employees");
@@ -260,22 +299,32 @@ async function ensureSchema() {
 
     await client.query("BEGIN");
     try {
+      const todayStr = new Date().toISOString().slice(0, 10);
       for (const row of SEED_EMPLOYEES) {
         const [id, name, nameEn, gender, position, level, empCode, joinYear, g1, g2, st, statToday, statQc, statRework, statDefect] = row;
         if (g1.length !== G1_AXES.length || g2.length !== G2_AXES.length || st.length !== stationIds.length) {
           throw new Error(`Seed data for ${id} has mismatched axis/station counts`);
         }
         const stObj = {};
-        // Seed data historically stored 0-100 proficiency percentages; scale to plausible work hours.
+        // Seed data historically stored 0-100 proficiency percentages; scale to plausible work hours
+        // and record them as a seed work-log entry, since hours are now summed from work_logs.
+        const seedStationHours = [];
         stationIds.forEach((sid, i) => {
           const hours = Math.round(st[i] * 3.2);
-          stObj[sid] = { hours, trained: hours > 0 };
+          stObj[sid] = { trained: hours > 0 };
+          if (hours > 0) seedStationHours.push([sid, hours]);
         });
         await client.query(
           `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
           [id, name, nameEn, gender, position, level, empCode, joinYear, JSON.stringify(g1), JSON.stringify(g2), JSON.stringify(stObj), statToday, statQc, statRework, statDefect]
         );
+        for (const [sid, hours] of seedStationHours) {
+          await client.query(
+            "INSERT INTO work_logs (id, employee_id, station_id, date, hours, note) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING",
+            [`WLSEED-${id}-${sid}`, id, sid, todayStr, hours, "ยอดยกมา"]
+          );
+        }
         for (const t of SEED_TASKS[id] || []) {
           await client.query(
             "INSERT INTO tasks (id, title, due, level) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING",

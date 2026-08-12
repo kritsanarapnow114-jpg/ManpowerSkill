@@ -8,12 +8,6 @@ function clamp(v) {
   return Math.max(0, Math.min(100, v));
 }
 
-function clampHours(v) {
-  v = parseInt(v, 10);
-  if (Number.isNaN(v) || v < 0) v = 0;
-  return v;
-}
-
 function avgOf(values) {
   if (!values.length) return 0;
   return Math.round(values.reduce((s, x) => s + x, 0) / values.length);
@@ -30,4 +24,4 @@ function stationLevelOf(trained, hours) {
   return level;
 }
 
-module.exports = { clamp, clampHours, avgOf, passOf, stationLevelOf };
+module.exports = { clamp, avgOf, passOf, stationLevelOf };

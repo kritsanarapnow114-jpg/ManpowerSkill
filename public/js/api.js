@@ -41,4 +41,7 @@ export const api = {
   listAchievements: () => request("/api/achievements"),
   createAchievement: (data) => request("/api/achievements", json("POST", data)),
   deleteAchievement: (id) => request(`/api/achievements/${id}`, { method: "DELETE" }),
+  listWorkLogs: () => request("/api/worklogs"),
+  createWorkLog: (data) => request("/api/worklogs", json("POST", data)),
+  deleteWorkLog: (id) => request(`/api/worklogs/${id}`, { method: "DELETE" }),
 };

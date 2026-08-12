@@ -11,6 +11,7 @@ import { renderAttendance } from "./screens/attendance.js";
 import { renderStations } from "./screens/stations.js";
 import { renderCertificates } from "./screens/certificates.js";
 import { renderAchievements } from "./screens/achievements.js";
+import { renderWorkLog } from "./screens/worklog.js";
 
 const appEl = document.getElementById("app");
 
@@ -33,6 +34,8 @@ const state = {
   certificateForm: { employeeId: null, name: "", expiry: "", image: "" },
   achievements: [],
   achievementForm: { employeeId: null, title: "", date: todayISO(), note: "" },
+  workLogs: [],
+  workLogForm: { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" },
   loading: true,
   error: null,
 };
@@ -47,6 +50,7 @@ const PAGE_MAP = {
   stations: ["จัดการสถานี / เครื่องจักร", "Manage stations & machine photos"],
   certificates: ["ใบเซอร์พนักงาน", "Employee certificates"],
   achievements: ["ผลงานพนักงาน", "Employee achievements"],
+  worklog: ["บันทึกการทำงาน", "Daily work log"],
 };
 
 function findEmployee(id) {
@@ -195,17 +199,6 @@ function refreshStationBadge(stationId) {
     valEl.style.color = color;
     valEl.style.background = color + "1a";
   }
-  const hoursInput = document.getElementById(`station-hours-${stationId}`);
-  if (hoursInput) hoursInput.disabled = !entry.trained;
-}
-
-function updateDraftStationHours(stationId, value) {
-  if (!state.draft) return;
-  const n = parseInt(value, 10);
-  const v = Number.isFinite(n) && n > 0 ? n : 0;
-  const entry = state.draft.st[stationId] || { hours: 0, trained: false };
-  state.draft.st[stationId] = { ...entry, hours: v };
-  refreshStationBadge(stationId);
 }
 
 function updateDraftStationTrained(stationId, trained) {
@@ -456,6 +449,46 @@ async function deleteAchievement(id) {
   render();
 }
 
+async function refreshWorkLogs() {
+  const [workLogs, employees] = await Promise.all([api.listWorkLogs(), api.listEmployees()]);
+  state.workLogs = workLogs;
+  state.employees = employees;
+}
+
+async function addWorkLog() {
+  const employeeId = state.workLogForm.employeeId || state.selId || (state.employees[0] && state.employees[0].id);
+  const stationId = state.workLogForm.stationId || (state.meta.stations[0] && state.meta.stations[0].id);
+  const hours = Number(state.workLogForm.hours);
+  if (!employeeId || !stationId || !Number.isFinite(hours) || hours <= 0) return;
+  try {
+    await api.createWorkLog({
+      employeeId,
+      stationId,
+      date: state.workLogForm.date || todayISO(),
+      hours,
+      note: state.workLogForm.note || "",
+    });
+    await refreshWorkLogs();
+    state.workLogForm.hours = "";
+    state.workLogForm.note = "";
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกชั่วโมงทำงานไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteWorkLog(id) {
+  try {
+    await api.deleteWorkLog(id);
+    await refreshWorkLogs();
+    state.error = null;
+  } catch (err) {
+    state.error = "ลบรายการไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
 function renderShell() {
   const { screen } = state;
   const isEmpScreen = screen === "list" || screen === "detail" || screen === "form";
@@ -478,6 +511,8 @@ function renderShell() {
     content = renderCertificates({ employees: state.employees, certificates: state.certificates, form: state.certificateForm });
   } else if (screen === "achievements") {
     content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm });
+  } else if (screen === "worklog") {
+    content = renderWorkLog({ employees: state.employees, stations: state.meta.stations, logs: state.workLogs, form: state.workLogForm });
   } else if (screen === "form" && state.draft) {
     content = renderForm({ draft: state.draft, meta: state.meta });
   } else {
@@ -520,6 +555,9 @@ function renderShell() {
         </button>
         <button class="nav-btn${screen === "achievements" ? " active" : ""}" data-nav="achievements">
           ${icons.achievement}<span>ผลงานพนักงาน<small>Achievements</small></span>
+        </button>
+        <button class="nav-btn${screen === "worklog" ? " active" : ""}" data-nav="worklog">
+          ${icons.worklog}<span>บันทึกการทำงาน<small>Work log</small></span>
         </button>
         <div class="sidebar-footer">
           <div class="line1">สายการประกอบ · Line A</div>
@@ -593,6 +631,8 @@ appEl.addEventListener("click", (e) => {
   else if (action === "delete-certificate") deleteCertificate(actionEl.dataset.id);
   else if (action === "add-achievement") addAchievement();
   else if (action === "delete-achievement") deleteAchievement(actionEl.dataset.id);
+  else if (action === "add-worklog") addWorkLog();
+  else if (action === "delete-worklog") deleteWorkLog(actionEl.dataset.id);
   else if (action === "add-new") addNew();
 });
 
@@ -602,8 +642,6 @@ appEl.addEventListener("input", (e) => {
     setDraftField(t.dataset.field, t.value);
   } else if (t.dataset && t.dataset.leaveField) {
     setDraftLeaveQuota(t.dataset.leaveField, t.value);
-  } else if (t.dataset && t.dataset.slider === "st") {
-    updateDraftStationHours(t.dataset.stationId, t.value);
   } else if (t.dataset && t.dataset.slider) {
     updateDraftSlider(t.dataset.slider, parseInt(t.dataset.index, 10), t.value);
   } else if (t.id === "task-title-input") {
@@ -630,6 +668,10 @@ appEl.addEventListener("input", (e) => {
     state.achievementForm.title = t.value;
   } else if (t.id === "ach-note-input") {
     state.achievementForm.note = t.value;
+  } else if (t.id === "wl-hours-input") {
+    state.workLogForm.hours = t.value;
+  } else if (t.id === "wl-note-input") {
+    state.workLogForm.note = t.value;
   }
 });
 
@@ -653,6 +695,12 @@ appEl.addEventListener("change", (e) => {
     state.attendanceForm.type = t.value;
   } else if (t.id === "att-date-input") {
     state.attendanceForm.date = t.value;
+  } else if (t.id === "wl-emp-select") {
+    state.workLogForm.employeeId = t.value;
+  } else if (t.id === "wl-station-select") {
+    state.workLogForm.stationId = t.value;
+  } else if (t.id === "wl-date-input") {
+    state.workLogForm.date = t.value;
   } else if (t.id === "stn-image-input") {
     const file = t.files && t.files[0];
     if (!file) return;
@@ -691,8 +739,8 @@ appEl.addEventListener("change", (e) => {
 
 async function init() {
   try {
-    const [meta, employees, tasks, attendanceRecords, certificates, achievements] = await Promise.all([
-      api.getMeta(), api.listEmployees(), api.listTasks(), api.listAttendance(), api.listCertificates(), api.listAchievements(),
+    const [meta, employees, tasks, attendanceRecords, certificates, achievements, workLogs] = await Promise.all([
+      api.getMeta(), api.listEmployees(), api.listTasks(), api.listAttendance(), api.listCertificates(), api.listAchievements(), api.listWorkLogs(),
     ]);
     state.meta = meta;
     state.employees = employees;
@@ -700,10 +748,13 @@ async function init() {
     state.attendanceRecords = attendanceRecords;
     state.certificates = certificates;
     state.achievements = achievements;
+    state.workLogs = workLogs;
     state.selId = employees[0] ? employees[0].id : null;
     state.attendanceForm.employeeId = state.selId;
     state.certificateForm.employeeId = state.selId;
     state.achievementForm.employeeId = state.selId;
+    state.workLogForm.employeeId = state.selId;
+    state.workLogForm.stationId = meta.stations[0] ? meta.stations[0].id : null;
     state.loading = false;
   } catch (err) {
     state.loading = false;
