@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, setUnauthorizedHandler } from "./api.js";
 import { icons } from "./icons.js";
 import { clamp, escapeHtml, normalizeImageLink, stationLevelOf, stationLevelColor } from "./format.js";
 import { radarSVG } from "./radar.js";
@@ -12,6 +12,8 @@ import { renderStations } from "./screens/stations.js";
 import { renderCertificates } from "./screens/certificates.js";
 import { renderAchievements } from "./screens/achievements.js";
 import { renderWorkLog } from "./screens/worklog.js";
+import { renderLogin } from "./screens/login.js";
+import { renderUsers } from "./screens/users.js";
 
 const appEl = document.getElementById("app");
 
@@ -20,6 +22,8 @@ function todayISO() {
 }
 
 const state = {
+  currentUser: null,
+  loginForm: { username: "", password: "", error: null, loading: false },
   meta: null,
   employees: [],
   tasks: [],
@@ -36,6 +40,9 @@ const state = {
   achievementForm: { employeeId: null, title: "", date: todayISO(), note: "" },
   workLogs: [],
   workLogForm: { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" },
+  users: [],
+  userForm: { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: null },
+  lineForm: { name: "" },
   loading: true,
   error: null,
 };
@@ -51,6 +58,7 @@ const PAGE_MAP = {
   certificates: ["ใบเซอร์พนักงาน", "Employee certificates"],
   achievements: ["ผลงานพนักงาน", "Employee achievements"],
   worklog: ["บันทึกการทำงาน", "Daily work log"],
+  users: ["จัดการผู้ใช้งาน", "Manage accounts"],
 };
 
 function findEmployee(id) {
@@ -81,6 +89,7 @@ function draftFromEmployee(emp) {
     empCode: emp.empCode,
     join: emp.join,
     level: emp.level,
+    lineId: emp.lineId,
     leaveQuota: { vacation: emp.leave.vacation.quota, sick: emp.leave.sick.quota, personal: emp.leave.personal.quota },
     g1: emp.g1.map((a) => a.v),
     g2: emp.g2.map((a) => a.v),
@@ -111,6 +120,7 @@ function addNew() {
     empCode: "EMP-",
     join: "2026",
     level: "Basic",
+    lineId: state.currentUser.role === "admin" ? (state.meta.lines[0] && state.meta.lines[0].id) : state.currentUser.lineId,
     leaveQuota: { ...state.meta.defaultLeaveQuota },
     g1: state.meta.g1Axes.map(() => 0),
     g2: state.meta.g2Axes.map(() => 0),
@@ -125,7 +135,7 @@ async function saveForm() {
   const d = state.draft;
   const payload = {
     name: d.name, nameEn: d.nameEn, nickname: d.nickname, photo: d.photo, gender: d.gender, position: d.position, empCode: d.empCode, join: d.join, level: d.level,
-    leaveQuota: d.leaveQuota, g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
+    lineId: d.lineId, leaveQuota: d.leaveQuota, g1: d.g1, g2: d.g2, st: d.st, stats: d.stats,
   };
   try {
     const saved = d.isNew ? await api.createEmployee(payload) : await api.updateEmployee(d.id, payload);
@@ -489,8 +499,173 @@ async function deleteWorkLog(id) {
   render();
 }
 
+function emptyUserForm() {
+  return { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: state.meta.lines[0] ? state.meta.lines[0].id : null };
+}
+
+function editUser(id) {
+  const u = state.users.find((x) => x.id === id);
+  if (!u) return;
+  state.userForm = { editingId: u.id, username: u.username, displayName: u.displayName, password: "", role: u.role, lineId: u.lineId || (state.meta.lines[0] && state.meta.lines[0].id) };
+  render();
+}
+
+function cancelUserEdit() {
+  state.userForm = emptyUserForm();
+  render();
+}
+
+function setUserRole(role) {
+  state.userForm.role = role;
+  render();
+}
+
+async function saveUser() {
+  const { editingId, username, displayName, password, role, lineId } = state.userForm;
+  if (!editingId && !username.trim()) return;
+  if (!editingId && password.length < 6) { state.error = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"; render(); return; }
+  try {
+    const payload = { displayName, role, lineId };
+    if (password) payload.password = password;
+    if (editingId) {
+      await api.updateUser(editingId, payload);
+    } else {
+      await api.createUser({ ...payload, username: username.trim(), password });
+    }
+    state.users = await api.listUsers();
+    state.userForm = emptyUserForm();
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกบัญชีไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function deleteUser(id) {
+  try {
+    await api.deleteUser(id);
+    state.users = state.users.filter((u) => u.id !== id);
+    if (state.userForm.editingId === id) state.userForm = emptyUserForm();
+    state.error = null;
+  } catch (err) {
+    state.error = "ลบบัญชีไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function addLine() {
+  const name = (state.lineForm.name || "").trim();
+  if (!name) return;
+  try {
+    const line = await api.createLine({ name });
+    state.meta.lines.push(line);
+    state.lineForm.name = "";
+    state.error = null;
+  } catch (err) {
+    state.error = "เพิ่มสายไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+function resetAppState() {
+  state.meta = null;
+  state.employees = [];
+  state.tasks = [];
+  state.screen = "list";
+  state.selId = null;
+  state.draft = null;
+  state.taskForm = { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null };
+  state.attendanceRecords = [];
+  state.attendanceForm = { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" };
+  state.stationForm = { editingId: null, code: "", name: "", image: "" };
+  state.certificates = [];
+  state.certificateForm = { employeeId: null, name: "", expiry: "", image: "" };
+  state.achievements = [];
+  state.achievementForm = { employeeId: null, title: "", date: todayISO(), note: "" };
+  state.workLogs = [];
+  state.workLogForm = { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" };
+  state.users = [];
+  state.userForm = { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: null };
+  state.lineForm = { name: "" };
+  state.loading = false;
+  state.error = null;
+}
+
+async function loadAppData() {
+  state.loading = true;
+  render();
+  try {
+    const [meta, employees, tasks, attendanceRecords, certificates, achievements, workLogs] = await Promise.all([
+      api.getMeta(), api.listEmployees(), api.listTasks(), api.listAttendance(), api.listCertificates(), api.listAchievements(), api.listWorkLogs(),
+    ]);
+    state.meta = meta;
+    state.employees = employees;
+    state.tasks = tasks;
+    state.attendanceRecords = attendanceRecords;
+    state.certificates = certificates;
+    state.achievements = achievements;
+    state.workLogs = workLogs;
+    state.selId = employees[0] ? employees[0].id : null;
+    state.attendanceForm.employeeId = state.selId;
+    state.certificateForm.employeeId = state.selId;
+    state.achievementForm.employeeId = state.selId;
+    state.workLogForm.employeeId = state.selId;
+    state.workLogForm.stationId = meta.stations[0] ? meta.stations[0].id : null;
+    if (state.currentUser.role === "admin") {
+      state.users = await api.listUsers();
+      state.userForm = emptyUserForm();
+    }
+    state.loading = false;
+    state.error = null;
+  } catch (err) {
+    state.loading = false;
+    state.error = "โหลดข้อมูลไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function login() {
+  const username = (state.loginForm.username || "").trim();
+  const password = state.loginForm.password || "";
+  if (!username || !password) return;
+  state.loginForm.loading = true;
+  state.loginForm.error = null;
+  render();
+  try {
+    const user = await api.login(username, password);
+    state.currentUser = user;
+    state.loginForm = { username: "", password: "", error: null, loading: false };
+    await loadAppData();
+  } catch (err) {
+    state.loginForm.loading = false;
+    state.loginForm.error = err.message || "เข้าสู่ระบบไม่สำเร็จ";
+    render();
+  }
+}
+
+async function logout() {
+  try {
+    await api.logout();
+  } catch (_) {}
+  state.currentUser = null;
+  resetAppState();
+  render();
+}
+
+setUnauthorizedHandler(() => {
+  state.currentUser = null;
+  resetAppState();
+  render();
+});
+
 function renderShell() {
+  if (!state.currentUser) {
+    appEl.innerHTML = renderLogin({ form: state.loginForm });
+    return;
+  }
+
   const { screen } = state;
+  const isAdmin = state.currentUser.role === "admin";
   const isEmpScreen = screen === "list" || screen === "detail" || screen === "form";
   const pg = PAGE_MAP[screen] || PAGE_MAP.detail;
 
@@ -513,8 +688,10 @@ function renderShell() {
     content = renderAchievements({ employees: state.employees, achievements: state.achievements, form: state.achievementForm });
   } else if (screen === "worklog") {
     content = renderWorkLog({ employees: state.employees, stations: state.meta.stations, logs: state.workLogs, form: state.workLogForm });
+  } else if (screen === "users" && isAdmin) {
+    content = renderUsers({ users: state.users, lines: state.meta.lines, userForm: state.userForm, lineForm: state.lineForm });
   } else if (screen === "form" && state.draft) {
-    content = renderForm({ draft: state.draft, meta: state.meta });
+    content = renderForm({ draft: state.draft, meta: state.meta, currentUser: state.currentUser });
   } else {
     const emp = findEmployee(state.selId);
     if (emp) {
@@ -524,6 +701,10 @@ function renderShell() {
       content = renderDetail({ emp, certificates: certs, achievements });
     }
   }
+
+  const lineById = state.meta ? Object.fromEntries(state.meta.lines.map((l) => [l.id, l])) : {};
+  const roleLabel = isAdmin ? "ผู้ดูแลระบบ" : "หัวหน้ากะ";
+  const lineLabel = isAdmin ? "ทุกสาย" : ((lineById[state.currentUser.lineId] && lineById[state.currentUser.lineId].name) || "");
 
   appEl.innerHTML = `
     <div class="app-shell">
@@ -559,9 +740,19 @@ function renderShell() {
         <button class="nav-btn${screen === "worklog" ? " active" : ""}" data-nav="worklog">
           ${icons.worklog}<span>บันทึกการทำงาน<small>Work log</small></span>
         </button>
+        ${isAdmin ? `
+          <button class="nav-btn${screen === "users" ? " active" : ""}" data-nav="users">
+            ${icons.admin}<span>จัดการผู้ใช้งาน<small>Manage accounts</small></span>
+          </button>
+        ` : ""}
         <div class="sidebar-footer">
-          <div class="line1">สายการประกอบ · Line A</div>
-          <div class="line2">อัปเดตล่าสุด · 5 ส.ค. 2026</div>
+          <div class="sidebar-user">
+            <div class="sidebar-user-info">
+              <div class="sidebar-user-name">${escapeHtml(state.currentUser.displayName || state.currentUser.username)}</div>
+              <div class="sidebar-user-role">${escapeHtml(roleLabel)}${lineLabel ? " · " + escapeHtml(lineLabel) : ""}</div>
+            </div>
+            <button class="sidebar-logout-btn" title="ออกจากระบบ" data-action="logout">${icons.logout}</button>
+          </div>
         </div>
       </aside>
       <main class="main">
@@ -634,6 +825,14 @@ appEl.addEventListener("click", (e) => {
   else if (action === "add-worklog") addWorkLog();
   else if (action === "delete-worklog") deleteWorkLog(actionEl.dataset.id);
   else if (action === "add-new") addNew();
+  else if (action === "login") login();
+  else if (action === "logout") logout();
+  else if (action === "edit-user") editUser(actionEl.dataset.id);
+  else if (action === "cancel-user-edit") cancelUserEdit();
+  else if (action === "set-user-role") setUserRole(actionEl.dataset.role);
+  else if (action === "save-user") saveUser();
+  else if (action === "delete-user") deleteUser(actionEl.dataset.id);
+  else if (action === "add-line") addLine();
 });
 
 appEl.addEventListener("input", (e) => {
@@ -672,6 +871,25 @@ appEl.addEventListener("input", (e) => {
     state.workLogForm.hours = t.value;
   } else if (t.id === "wl-note-input") {
     state.workLogForm.note = t.value;
+  } else if (t.id === "login-username") {
+    state.loginForm.username = t.value;
+  } else if (t.id === "login-password") {
+    state.loginForm.password = t.value;
+  } else if (t.id === "user-username-input") {
+    state.userForm.username = t.value;
+  } else if (t.id === "user-displayname-input") {
+    state.userForm.displayName = t.value;
+  } else if (t.id === "user-password-input") {
+    state.userForm.password = t.value;
+  } else if (t.id === "line-name-input") {
+    state.lineForm.name = t.value;
+  }
+});
+
+appEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.dataset && e.target.dataset.loginField !== undefined) {
+    e.preventDefault();
+    login();
   }
 });
 
@@ -734,33 +952,22 @@ appEl.addEventListener("change", (e) => {
     state.achievementForm.employeeId = t.value;
   } else if (t.id === "ach-date-input") {
     state.achievementForm.date = t.value;
+  } else if (t.id === "user-line-select") {
+    state.userForm.lineId = t.value;
+  } else if (t.id === "employee-line-select") {
+    setDraftField("lineId", t.value);
   }
 });
 
 async function init() {
   try {
-    const [meta, employees, tasks, attendanceRecords, certificates, achievements, workLogs] = await Promise.all([
-      api.getMeta(), api.listEmployees(), api.listTasks(), api.listAttendance(), api.listCertificates(), api.listAchievements(), api.listWorkLogs(),
-    ]);
-    state.meta = meta;
-    state.employees = employees;
-    state.tasks = tasks;
-    state.attendanceRecords = attendanceRecords;
-    state.certificates = certificates;
-    state.achievements = achievements;
-    state.workLogs = workLogs;
-    state.selId = employees[0] ? employees[0].id : null;
-    state.attendanceForm.employeeId = state.selId;
-    state.certificateForm.employeeId = state.selId;
-    state.achievementForm.employeeId = state.selId;
-    state.workLogForm.employeeId = state.selId;
-    state.workLogForm.stationId = meta.stations[0] ? meta.stations[0].id : null;
-    state.loading = false;
+    const user = await api.getMe();
+    state.currentUser = user;
+    await loadAppData();
   } catch (err) {
     state.loading = false;
-    state.error = "โหลดข้อมูลไม่สำเร็จ: " + err.message;
+    render();
   }
-  render();
 }
 
 init();

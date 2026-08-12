@@ -2,6 +2,7 @@
 
 const { Pool } = require("pg");
 const { G1_AXES, G2_AXES, STATIONS } = require("./labels");
+const { hashPassword } = require("./auth");
 
 const connectionString =
   process.env.DATABASE_URL ||
@@ -113,6 +114,25 @@ const SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
 
+  -- Assembly lines/teams. Each employee belongs to one; each shift-leader account is scoped to one.
+  CREATE TABLE IF NOT EXISTS lines (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+
+  ALTER TABLE employees ADD COLUMN IF NOT EXISTS line_id TEXT REFERENCES lines(id);
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL,
+    line_id TEXT REFERENCES lines(id) ON DELETE SET NULL,
+    display_name TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
   -- Tracks one-off data migrations that have no reliable structural marker to guard on.
   CREATE TABLE IF NOT EXISTS schema_flags (
     key TEXT PRIMARY KEY,
@@ -197,6 +217,31 @@ async function ensureSchema() {
     }
     const { rows: stationRows } = await client.query("SELECT id FROM stations ORDER BY sort_order");
     const stationIds = stationRows.map((r) => r.id);
+
+    // Seed a default line once; every existing employee is backfilled onto it below.
+    const lineCount = await client.query("SELECT COUNT(*)::int AS count FROM lines");
+    if (lineCount.rows[0].count === 0) {
+      await client.query("INSERT INTO lines (id, name, sort_order) VALUES ('LINE-A', 'Line A', 0)");
+    }
+    const { rows: firstLineRows } = await client.query("SELECT id FROM lines ORDER BY sort_order LIMIT 1");
+    const defaultLineId = firstLineRows[0].id;
+    await client.query("UPDATE employees SET line_id = $1 WHERE line_id IS NULL", [defaultLineId]);
+
+    // Seed default login accounts once: one admin, one shift leader for the default line.
+    // These use known default passwords — change them from the admin accounts screen right away.
+    const userCount = await client.query("SELECT COUNT(*)::int AS count FROM users");
+    if (userCount.rows[0].count === 0) {
+      const adminHash = await hashPassword("Admin@2026!");
+      const leaderHash = await hashPassword("Leader@2026!");
+      await client.query(
+        "INSERT INTO users (id, username, password_hash, role, line_id, display_name) VALUES ($1,$2,$3,$4,$5,$6)",
+        ["U-admin", "admin", adminHash, "admin", null, "ผู้ดูแลระบบ"]
+      );
+      await client.query(
+        "INSERT INTO users (id, username, password_hash, role, line_id, display_name) VALUES ($1,$2,$3,$4,$5,$6)",
+        ["U-leaderA", "leaderA", leaderHash, "shift_leader", defaultLineId, "หัวหน้า Line A"]
+      );
+    }
 
     // One-time migration: employees.st used to be a positional array; it's now an object keyed by station id.
     const { rows: empRows } = await client.query("SELECT id, st FROM employees");
@@ -315,9 +360,9 @@ async function ensureSchema() {
           if (hours > 0) seedStationHours.push([sid, hours]);
         });
         await client.query(
-          `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-          [id, name, nameEn, gender, position, level, empCode, joinYear, JSON.stringify(g1), JSON.stringify(g2), JSON.stringify(stObj), statToday, statQc, statRework, statDefect]
+          `INSERT INTO employees (id, name, name_en, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, line_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+          [id, name, nameEn, gender, position, level, empCode, joinYear, JSON.stringify(g1), JSON.stringify(g2), JSON.stringify(stObj), statToday, statQc, statRework, statDefect, defaultLineId]
         );
         for (const [sid, hours] of seedStationHours) {
           await client.query(

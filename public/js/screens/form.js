@@ -1,7 +1,8 @@
 import { lvlColor, escapeHtml, stationLevelOf, stationLevelColor } from "../format.js";
 import { radarSVG } from "../radar.js";
 
-export function renderForm({ draft, meta }) {
+export function renderForm({ draft, meta, currentUser }) {
+  const isAdmin = currentUser && currentUser.role === "admin";
   const g1Sliders = meta.g1Axes.map((axis, i) => `
     <div class="slider-row">
       <span class="slider-label">${escapeHtml(axis.th.replace(/\n/g, " "))}</span>
@@ -92,6 +93,13 @@ export function renderForm({ draft, meta }) {
             </select>
           </label>
           <label class="field-label">รหัสพนักงาน<input class="field-input" value="${escapeHtml(draft.empCode)}" data-field="empCode"></label>
+          ${isAdmin ? `
+            <label class="field-label">สาย
+              <select class="field-input" id="employee-line-select">
+                ${meta.lines.map((l) => `<option value="${escapeHtml(l.id)}" ${draft.lineId === l.id ? "selected" : ""}>${escapeHtml(l.name)}</option>`).join("")}
+              </select>
+            </label>
+          ` : ""}
         </div>
         ${!meta.positions.includes(draft.position) ? `
           <label class="field-label" style="margin-top:16px">ระบุตำแหน่ง

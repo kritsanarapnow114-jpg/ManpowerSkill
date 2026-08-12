@@ -25,8 +25,20 @@ async function applySkillBump(employeeId, axisGroup, axisIndex, delta) {
   await pool.query(`UPDATE employees SET ${axisGroup} = $1 WHERE id = $2`, [JSON.stringify(next), employeeId]);
 }
 
+// Whether any assignee of a task belongs to the given line — used to scope a shift leader's
+// visibility/actions to tasks relevant to their own team.
+async function taskInvolvesLine(taskId, lineId) {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM task_assignments ta JOIN employees e ON e.id = ta.employee_id
+     WHERE ta.task_id = $1 AND e.line_id = $2 LIMIT 1`,
+    [taskId, lineId]
+  );
+  return rows.length > 0;
+}
+
 router.get("/", async (req, res, next) => {
   try {
+    const scoped = req.user.role !== "admin";
     const { rows } = await pool.query(
       `SELECT t.id, t.title, t.due, t.level, t.axis_group, t.axis_index,
          COALESCE(bool_and(ta.done), false) AS done,
@@ -34,8 +46,10 @@ router.get("/", async (req, res, next) => {
        FROM tasks t
        JOIN task_assignments ta ON ta.task_id = t.id
        JOIN employees e ON e.id = ta.employee_id
+       ${scoped ? "WHERE t.id IN (SELECT task_id FROM task_assignments ta2 JOIN employees e2 ON e2.id = ta2.employee_id WHERE e2.line_id = $1)" : ""}
        GROUP BY t.id
-       ORDER BY t.created_at DESC`
+       ORDER BY t.created_at DESC`,
+      scoped ? [req.user.lineId] : []
     );
     res.json(rows.map((r) => ({
       id: r.id, title: r.title, due: r.due, level: r.level,
@@ -54,8 +68,11 @@ router.post("/", async (req, res, next) => {
     if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title is required" });
     if (!TASK_LEVELS.includes(level)) return res.status(400).json({ error: `level must be one of ${TASK_LEVELS.join(", ")}` });
 
-    const empCheck = await pool.query("SELECT id FROM employees WHERE id = ANY($1)", [ids]);
+    const empCheck = await pool.query("SELECT id, line_id FROM employees WHERE id = ANY($1)", [ids]);
     if (empCheck.rows.length !== ids.length) return res.status(400).json({ error: "Some employeeIds are invalid" });
+    if (req.user.role !== "admin" && empCheck.rows.some((r) => r.line_id !== req.user.lineId)) {
+      return res.status(403).json({ error: "คุณมอบหมายงานได้เฉพาะพนักงานในสายของตัวเองเท่านั้น" });
+    }
 
     let axGroup = null;
     let axIndex = null;
@@ -89,6 +106,9 @@ router.patch("/:id", async (req, res, next) => {
   try {
     const task = await pool.query("SELECT * FROM tasks WHERE id = $1", [req.params.id]);
     if (!task.rows[0]) return res.status(404).json({ error: "Task not found" });
+    if (req.user.role !== "admin" && !(await taskInvolvesLine(req.params.id, req.user.lineId))) {
+      return res.status(404).json({ error: "Task not found" });
+    }
     if (!req.body || typeof req.body.done !== "boolean") return res.status(400).json({ error: "done must be a boolean" });
 
     const newDone = req.body.done;
@@ -109,6 +129,9 @@ router.patch("/:id", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
+    if (req.user.role !== "admin" && !(await taskInvolvesLine(req.params.id, req.user.lineId))) {
+      return res.status(404).json({ error: "Task not found" });
+    }
     const result = await pool.query("DELETE FROM tasks WHERE id = $1", [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: "Task not found" });
     res.status(204).end();

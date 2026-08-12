@@ -17,6 +17,8 @@ router.get("/", async (req, res, next) => {
     );
     const positions = Array.from(new Set([...POSITIONS, ...posRows.map((r) => r.position)]));
 
+    const { rows: lineRows } = await pool.query("SELECT id, name FROM lines ORDER BY sort_order, name");
+
     res.json({
       g1Axes: G1_AXES,
       g2Axes: G2_AXES,
@@ -28,6 +30,7 @@ router.get("/", async (req, res, next) => {
       genders: GENDERS,
       attendanceTypes: ATTENDANCE_TYPES,
       defaultLeaveQuota: DEFAULT_LEAVE_QUOTA,
+      lines: lineRows,
     });
   } catch (err) {
     next(err);

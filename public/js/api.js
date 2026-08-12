@@ -1,12 +1,22 @@
+let onUnauthorized = null;
+export function setUnauthorizedHandler(fn) {
+  onUnauthorized = fn;
+}
+
 async function request(url, options) {
-  const res = await fetch(url, options);
+  const res = await fetch(url, { credentials: "same-origin", ...options });
+  if (res.status === 401 && !url.startsWith("/api/auth/")) {
+    if (onUnauthorized) onUnauthorized();
+  }
   if (!res.ok) {
     let message = res.statusText;
     try {
       const body = await res.json();
       if (body && body.error) message = body.error;
     } catch (_) {}
-    throw new Error(message);
+    const err = new Error(message);
+    err.status = res.status;
+    throw err;
   }
   if (res.status === 204) return null;
   return res.json();
@@ -19,6 +29,15 @@ const json = (method, body) => ({
 });
 
 export const api = {
+  login: (username, password) => request("/api/auth/login", json("POST", { username, password })),
+  logout: () => request("/api/auth/logout", { method: "POST" }),
+  getMe: () => request("/api/auth/me"),
+  listUsers: () => request("/api/users"),
+  createUser: (data) => request("/api/users", json("POST", data)),
+  updateUser: (id, data) => request(`/api/users/${id}`, json("PUT", data)),
+  deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
+  listLines: () => request("/api/lines"),
+  createLine: (data) => request("/api/lines", json("POST", data)),
   getMeta: () => request("/api/meta"),
   listEmployees: () => request("/api/employees"),
   getEmployee: (id) => request(`/api/employees/${id}`),

@@ -1,9 +1,15 @@
 "use strict";
 
 const express = require("express");
+const cookieParser = require("cookie-parser");
+const { requireAuth } = require("./auth");
 
 const app = express();
 app.use(express.json({ limit: "8mb" }));
+app.use(cookieParser());
+
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api", requireAuth);
 
 app.use("/api/meta", require("./routes/meta"));
 app.use("/api/employees", require("./routes/employees"));
@@ -13,6 +19,8 @@ app.use("/api/stations", require("./routes/stations"));
 app.use("/api/certificates", require("./routes/certificates"));
 app.use("/api/achievements", require("./routes/achievements"));
 app.use("/api/worklogs", require("./routes/worklogs"));
+app.use("/api/users", require("./routes/users"));
+app.use("/api/lines", require("./routes/lines"));
 
 app.use((err, req, res, next) => {
   if (err.type === "entity.too.large") {

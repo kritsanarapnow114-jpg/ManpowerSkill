@@ -102,6 +102,7 @@ async function serialize(row) {
     level: row.level,
     empCode: row.emp_code,
     join: row.join_year,
+    lineId: row.line_id,
     g1: G1_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
     g2: G2_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
     st: stations.map((s) => {
@@ -208,7 +209,11 @@ function validateBody(body, { partial } = {}) {
 
 router.get("/", async (req, res, next) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM employees ORDER BY emp_code");
+    const scoped = req.user.role !== "admin";
+    const { rows } = await pool.query(
+      scoped ? "SELECT * FROM employees WHERE line_id = $1 ORDER BY emp_code" : "SELECT * FROM employees ORDER BY emp_code",
+      scoped ? [req.user.lineId] : []
+    );
     res.json(await Promise.all(rows.map(serialize)));
   } catch (err) {
     next(err);
@@ -219,6 +224,9 @@ router.get("/:id", async (req, res, next) => {
   try {
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: "Employee not found" });
+    if (req.user.role !== "admin" && rows[0].line_id !== req.user.lineId) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
     res.json(await serialize(rows[0]));
   } catch (err) {
     next(err);
@@ -228,16 +236,24 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", async (req, res, next) => {
   try {
     const { errors, out } = validateBody(req.body || {});
+
+    const bodyLineId = typeof req.body.lineId === "string" ? req.body.lineId.trim() : "";
+    const lineId = req.user.role === "admin" ? bodyLineId : req.user.lineId;
+    if (!lineId) errors.push("lineId is required");
+    else {
+      const lineCheck = await pool.query("SELECT id FROM lines WHERE id = $1", [lineId]);
+      if (!lineCheck.rows[0]) errors.push("Invalid lineId");
+    }
     if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
     const id = "E" + Date.now();
     await pool.query(
-      `INSERT INTO employees (id, name, name_en, nickname, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      `INSERT INTO employees (id, name, name_en, nickname, photo, gender, position, level, emp_code, join_year, g1, g2, st, stat_today, stat_qc, stat_rework, stat_defect, leave_quota_vacation, leave_quota_sick, leave_quota_personal, line_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
       [id, out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
-        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal]
+        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId]
     );
 
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [id]);
@@ -249,21 +265,32 @@ router.post("/", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
-    const existing = await pool.query("SELECT id FROM employees WHERE id = $1", [req.params.id]);
+    const existing = await pool.query("SELECT id, line_id FROM employees WHERE id = $1", [req.params.id]);
     if (!existing.rows[0]) return res.status(404).json({ error: "Employee not found" });
+    if (req.user.role !== "admin" && existing.rows[0].line_id !== req.user.lineId) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
 
     const { errors, out } = validateBody(req.body || {});
+
+    const bodyLineId = typeof req.body.lineId === "string" ? req.body.lineId.trim() : "";
+    const lineId = req.user.role === "admin" ? bodyLineId || existing.rows[0].line_id : req.user.lineId;
+    if (!lineId) errors.push("lineId is required");
+    else {
+      const lineCheck = await pool.query("SELECT id FROM lines WHERE id = $1", [lineId]);
+      if (!lineCheck.rows[0]) errors.push("Invalid lineId");
+    }
     if (errors.length) return res.status(400).json({ error: errors.join("; ") });
 
     await pool.query(
       `UPDATE employees SET name=$1, name_en=$2, nickname=$3, photo=$4, gender=$5, position=$6, level=$7, emp_code=$8,
          join_year=$9, g1=$10, g2=$11, st=$12, stat_today=$13, stat_qc=$14, stat_rework=$15, stat_defect=$16,
-         leave_quota_vacation=$17, leave_quota_sick=$18, leave_quota_personal=$19
-       WHERE id=$20`,
+         leave_quota_vacation=$17, leave_quota_sick=$18, leave_quota_personal=$19, line_id=$20
+       WHERE id=$21`,
       [out.name, out.nameEn, out.nickname, out.photo, out.gender, out.position, out.level, out.empCode, out.join,
         JSON.stringify(out.g1), JSON.stringify(out.g2), JSON.stringify(out.st),
         out.stats.today, out.stats.qc, out.stats.rework, out.stats.defect,
-        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, req.params.id]
+        out.leaveQuota.vacation, out.leaveQuota.sick, out.leaveQuota.personal, lineId, req.params.id]
     );
 
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [req.params.id]);
