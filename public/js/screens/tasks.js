@@ -23,7 +23,7 @@ export function renderEmpSuggestionItems(employees, query, excludeIds, action = 
   `).join("");
 }
 
-export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
+export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, currentUser = null, distribute = null }) {
   const tkAll = tasks.length;
   const tkDone = tasks.filter((t) => t.done).length;
   const tkOverdue = tasks.filter((t) => isTaskOverdue(t.due, t.done)).length;
@@ -75,12 +75,39 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
   const activeTasks = tasks.filter((t) => !t.done);
   const historyTasks = tasks.filter((t) => t.done);
 
+  // A team-lead employee who is the sole assignee of a task received it from someone above them
+  // and can hand it down to their own team - "pick who actually does it, can be more than one."
+  const isTeamLeadView = currentUser && currentUser.role === "employee";
+  const canDistribute = (t) => isTeamLeadView && t.assignees.length === 1 && t.assignees[0].id === currentUser.employeeId;
+
   const taskCards = activeTasks.map((t) => {
     const overdue = isTaskOverdue(t.due, t.done);
     const names = t.assignees.map((a) => a.nickname || a.nameEn).join(", ");
     const avatars = t.assignees.map((a) => `<div class="avatar-sm" title="${escapeHtml(a.nameEn)}" style="background:${avatarBg(a.level)}">${escapeHtml(initials(a.nameEn))}</div>`).join("");
+    const distributable = canDistribute(t);
+    const panelOpen = distributable && distribute && distribute.openTaskId === t.id;
+    const panel = panelOpen ? `
+      <div class="task-distribute-panel">
+        <div class="task-distribute-title">เลือกคนที่จะทำงานนี้ (เลือกได้หลายคน)</div>
+        <div class="task-distribute-chips">
+          ${employees.map((e) => {
+            const checked = distribute.selection.includes(e.id);
+            return `
+              <label class="task-distribute-chip${checked ? " active" : ""}">
+                <input type="checkbox" data-distribute-emp="${escapeHtml(e.id)}" ${checked ? "checked" : ""}>
+                <span>${escapeHtml(e.nickname || e.nameEn)}</span>
+              </label>
+            `;
+          }).join("")}
+        </div>
+        <div class="task-distribute-actions">
+          <button class="btn-gradient" data-action="confirm-distribute-task" data-task-id="${escapeHtml(t.id)}" ${distribute.selection.length ? "" : "disabled"}>มอบหมาย</button>
+          <button class="btn-outline" data-action="cancel-distribute-task">ยกเลิก</button>
+        </div>
+      </div>
+    ` : "";
     return `
-      <div class="task-card">
+      <div class="task-card${panelOpen ? " task-card-expanded" : ""}">
         <div class="task-card-body">
           <div class="task-card-title">${escapeHtml(t.title)}</div>
           <div class="task-card-due" style="${overdue ? "color:#dc2626;font-weight:700" : ""}">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
@@ -91,8 +118,10 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
         ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
+        ${distributable ? `<button class="btn-outline" data-action="${panelOpen ? "cancel-distribute-task" : "open-distribute-task"}" data-task-id="${escapeHtml(t.id)}">${panelOpen ? "ปิด" : "เลือกคนทำ →"}</button>` : ""}
         <button class="btn-complete" data-action="complete-task" data-task-id="${escapeHtml(t.id)}">${icons.check || ""} เสร็จสิ้น</button>
         <button class="btn-icon" title="ลบงาน" data-action="delete-task" data-task-id="${escapeHtml(t.id)}">${icons.trash}</button>
+        ${panel}
       </div>
     `;
   }).join("");

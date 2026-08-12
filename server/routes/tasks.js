@@ -177,6 +177,55 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
+// Replaces a task's whole assignee list - lets a team lead who received a task pick which of
+// their teammates actually does it (can include themselves), without creating a new task.
+router.put("/:id/assignees", async (req, res, next) => {
+  try {
+    const task = await pool.query("SELECT id FROM tasks WHERE id = $1", [req.params.id]);
+    if (!task.rows[0]) return res.status(404).json({ error: "Task not found" });
+
+    const { employeeIds } = req.body || {};
+    const ids = Array.isArray(employeeIds) ? [...new Set(employeeIds)] : [];
+    if (!ids.length) return res.status(400).json({ error: "employeeIds must be a non-empty array" });
+
+    const empCheck = await pool.query("SELECT id, line_id FROM employees WHERE id = ANY($1)", [ids]);
+    if (empCheck.rows.length !== ids.length) return res.status(400).json({ error: "Some employeeIds are invalid" });
+
+    if (req.user.role === "shift_leader") {
+      if (!(await taskInvolvesLine(req.params.id, req.user.lineId))) return res.status(404).json({ error: "Task not found" });
+      if (empCheck.rows.some((r) => r.line_id !== req.user.lineId)) {
+        return res.status(403).json({ error: "คุณมอบหมายงานได้เฉพาะพนักงานในสายของตัวเองเท่านั้น" });
+      }
+    } else if (req.user.role === "employee") {
+      if (!(await taskInvolvesEmployee(req.params.id, req.user.employeeId))) return res.status(404).json({ error: "Task not found" });
+      const teamMemberIds = await fetchTeamMemberIds(req.user.employeeId);
+      const allowed = new Set([req.user.employeeId, ...teamMemberIds]);
+      if (ids.some((eid) => !allowed.has(eid))) {
+        return res.status(403).json({ error: "คุณมอบหมายงานได้เฉพาะสมาชิกในทีมของคุณเท่านั้น" });
+      }
+    }
+
+    const { rows: current } = await pool.query("SELECT id, employee_id FROM task_assignments WHERE task_id = $1", [req.params.id]);
+    const currentIds = new Set(current.map((r) => r.employee_id));
+    const newIds = new Set(ids);
+
+    for (const r of current) {
+      if (!newIds.has(r.employee_id)) await pool.query("DELETE FROM task_assignments WHERE id = $1", [r.id]);
+    }
+    const toAdd = ids.filter((eid) => !currentIds.has(eid));
+    for (let i = 0; i < toAdd.length; i++) {
+      await pool.query(
+        "INSERT INTO task_assignments (id, task_id, employee_id, done) VALUES ($1,$2,$3,false)",
+        [req.params.id + "-a" + Date.now() + "-" + i, req.params.id, toAdd[i]]
+      );
+    }
+
+    res.json({ id: req.params.id, employeeIds: ids });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.delete("/:id", async (req, res, next) => {
   try {
     if (req.user.role === "shift_leader" && !(await taskInvolvesLine(req.params.id, req.user.lineId))) {

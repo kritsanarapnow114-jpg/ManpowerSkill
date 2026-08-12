@@ -32,6 +32,7 @@ const state = {
   selId: null,
   draft: null,
   taskForm: { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null },
+  taskDistribute: { openTaskId: null, selection: [] },
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
   stationForm: { editingId: null, code: "", name: "", image: "", hazards: [] },
@@ -282,6 +283,38 @@ async function toggleTaskDone(taskId, done) {
     state.error = null;
   } catch (err) {
     state.error = "บันทึกสถานะงานไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+function openDistributeTask(taskId) {
+  state.taskDistribute = { openTaskId: taskId, selection: [] };
+  render();
+}
+
+function cancelDistributeTask() {
+  state.taskDistribute = { openTaskId: null, selection: [] };
+  render();
+}
+
+function toggleDistributeEmp(id) {
+  const sel = state.taskDistribute.selection;
+  const i = sel.indexOf(id);
+  if (i === -1) sel.push(id);
+  else sel.splice(i, 1);
+  render();
+}
+
+async function confirmDistributeTask(taskId) {
+  const employeeIds = state.taskDistribute.selection;
+  if (!employeeIds.length) return;
+  try {
+    await api.setTaskAssignees(taskId, employeeIds);
+    await refreshTasks();
+    state.taskDistribute = { openTaskId: null, selection: [] };
+    state.error = null;
+  } catch (err) {
+    state.error = "มอบหมายงานไม่สำเร็จ: " + err.message;
   }
   render();
 }
@@ -675,6 +708,7 @@ function resetAppState() {
   state.selId = null;
   state.draft = null;
   state.taskForm = { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null };
+  state.taskDistribute = { openTaskId: null, selection: [] };
   state.attendanceRecords = [];
   state.attendanceForm = { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" };
   state.stationForm = { editingId: null, code: "", name: "", image: "", hazards: [] };
@@ -774,7 +808,7 @@ function renderEmployeeShell() {
   if (state.loading) {
     content = `<div class="card">กำลังโหลดข้อมูล...</div>`;
   } else if (myScreen === "team-tasks") {
-    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true });
+    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true, currentUser: state.currentUser, distribute: state.taskDistribute });
   } else if (myScreen === "my-tasks") {
     content = renderMyTasks({ tasks: self ? self.tasks : [] });
   } else if (myScreen === "my-worklog") {
@@ -1005,6 +1039,9 @@ appEl.addEventListener("click", (e) => {
   else if (action === "complete-task") toggleTaskDone(actionEl.dataset.taskId, true);
   else if (action === "reopen-task") toggleTaskDone(actionEl.dataset.taskId, false);
   else if (action === "delete-task") deleteTask(actionEl.dataset.taskId);
+  else if (action === "open-distribute-task") openDistributeTask(actionEl.dataset.taskId);
+  else if (action === "cancel-distribute-task") cancelDistributeTask();
+  else if (action === "confirm-distribute-task") confirmDistributeTask(actionEl.dataset.taskId);
   else if (action === "add-attendance") addAttendance();
   else if (action === "delete-attendance") deleteAttendance(actionEl.dataset.id);
   else if (action === "edit-station") editStation(actionEl.dataset.id);
@@ -1107,6 +1144,8 @@ appEl.addEventListener("change", (e) => {
   const t = e.target;
   if (t.dataset && t.dataset.stationTrained) {
     updateDraftStationTrained(t.dataset.stationTrained, t.checked);
+  } else if (t.dataset && t.dataset.distributeEmp) {
+    toggleDistributeEmp(t.dataset.distributeEmp);
   } else if (t.id === "task-axis-select") {
     if (!t.value) {
       state.taskForm.axisGroup = "";

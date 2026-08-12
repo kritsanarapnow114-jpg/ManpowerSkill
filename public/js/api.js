@@ -46,6 +46,7 @@ export const api = {
   listTasks: () => request("/api/tasks"),
   createTask: (data) => request("/api/tasks", json("POST", data)),
   setTaskDone: (taskId, done) => request(`/api/tasks/${taskId}`, json("PATCH", { done })),
+  setTaskAssignees: (taskId, employeeIds) => request(`/api/tasks/${taskId}/assignees`, json("PUT", { employeeIds })),
   deleteTask: (taskId) => request(`/api/tasks/${taskId}`, { method: "DELETE" }),
   listAttendance: () => request("/api/attendance"),
   createAttendance: (data) => request("/api/attendance", json("POST", data)),
