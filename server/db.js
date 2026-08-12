@@ -1,7 +1,7 @@
 "use strict";
 
 const { Pool } = require("pg");
-const { G1_AXES, G2_AXES, STATIONS } = require("./labels");
+const { g1AxesFor, g2AxesFor, DEFAULT_POSITION, STATIONS } = require("./labels");
 const { hashPassword } = require("./auth");
 
 const connectionString =
@@ -129,9 +129,12 @@ const SCHEMA_SQL = `
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL,
     line_id TEXT REFERENCES lines(id) ON DELETE SET NULL,
+    employee_id TEXT REFERENCES employees(id) ON DELETE CASCADE,
     display_name TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS employee_id TEXT REFERENCES employees(id) ON DELETE CASCADE;
 
   -- Tracks one-off data migrations that have no reliable structural marker to guard on.
   CREATE TABLE IF NOT EXISTS schema_flags (
@@ -316,9 +319,23 @@ async function ensureSchema() {
     // categories, so old scores can't carry over — reset g2 to zeros sized to the new axis count.
     const { rows: g2Rows } = await client.query("SELECT id, g2 FROM employees");
     for (const row of g2Rows) {
-      if (!Array.isArray(row.g2) || row.g2.length !== G2_AXES.length) {
-        await client.query("UPDATE employees SET g2 = $1 WHERE id = $2", [JSON.stringify(G2_AXES.map(() => 0)), row.id]);
+      if (!Array.isArray(row.g2) || row.g2.length !== g2AxesFor(DEFAULT_POSITION).length) {
+        await client.query("UPDATE employees SET g2 = $1 WHERE id = $2", [JSON.stringify(g2AxesFor(DEFAULT_POSITION).map(() => 0)), row.id]);
       }
+    }
+
+    // One-time migration: both axis sets were replaced with position-specific ones (Material
+    // Handler / Cert Forklift / Shift Leader each measure genuinely different things now), so old
+    // scores can't carry over even though the axis count is still 6 either way — reset everyone.
+    const posAxisFlag = await client.query("SELECT 1 FROM schema_flags WHERE key = 'g1_g2_position_specific_reset'");
+    if (posAxisFlag.rows.length === 0) {
+      const { rows: empPosRows } = await client.query("SELECT id, position FROM employees");
+      for (const row of empPosRows) {
+        const zerosG1 = g1AxesFor(row.position).map(() => 0);
+        const zerosG2 = g2AxesFor(row.position).map(() => 0);
+        await client.query("UPDATE employees SET g1 = $1, g2 = $2 WHERE id = $3", [JSON.stringify(zerosG1), JSON.stringify(zerosG2), row.id]);
+      }
+      await client.query("INSERT INTO schema_flags (key) VALUES ('g1_g2_position_specific_reset') ON CONFLICT DO NOTHING");
     }
 
     // One-time migration: tasks used to belong to exactly one employee (employee_id + progress%);
@@ -347,7 +364,7 @@ async function ensureSchema() {
       const todayStr = new Date().toISOString().slice(0, 10);
       for (const row of SEED_EMPLOYEES) {
         const [id, name, nameEn, gender, position, level, empCode, joinYear, g1, g2, st, statToday, statQc, statRework, statDefect] = row;
-        if (g1.length !== G1_AXES.length || g2.length !== G2_AXES.length || st.length !== stationIds.length) {
+        if (g1.length !== g1AxesFor(position).length || g2.length !== g2AxesFor(position).length || st.length !== stationIds.length) {
           throw new Error(`Seed data for ${id} has mismatched axis/station counts`);
         }
         const stObj = {};

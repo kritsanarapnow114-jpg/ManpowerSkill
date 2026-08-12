@@ -1,29 +1,48 @@
 import { escapeHtml } from "../format.js";
 import { icons } from "../icons.js";
 
-const ROLE_LABELS = { admin: "ผู้ดูแลระบบ", shift_leader: "หัวหน้ากะ (Shift leader)" };
+const ROLE_LABELS = { admin: "ผู้ดูแลระบบ", shift_leader: "หัวหน้ากะ (Shift leader)", employee: "พนักงาน" };
+const ROLE_COLORS = {
+  shift_leader: "border-color:#0c7f93;background:#0c7f93;color:#fff",
+  admin: "border-color:#7c4dbc;background:#7c4dbc;color:#fff",
+  employee: "border-color:#16a34a;background:#16a34a;color:#fff",
+};
+const ROLE_IDLE = "border-color:#dbe3e9;background:#f5f8fa;color:#5a6a78";
 
-export function renderUsers({ users, lines, userForm, lineForm }) {
+export function renderUsers({ users, lines, employees, userForm, lineForm }) {
   const lineById = Object.fromEntries(lines.map((l) => [l.id, l]));
+  const empById = Object.fromEntries(employees.map((e) => [e.id, e]));
   const isEditing = !!userForm.editingId;
 
   const lineOptions = lines
     .map((l) => `<option value="${escapeHtml(l.id)}" ${userForm.lineId === l.id ? "selected" : ""}>${escapeHtml(l.name)}</option>`)
     .join("");
+  const empOptions = employees
+    .map((e) => `<option value="${escapeHtml(e.id)}" ${userForm.employeeId === e.id ? "selected" : ""}>${escapeHtml(e.empCode + " · " + e.nameEn)}</option>`)
+    .join("");
 
-  const rows = users.map((u) => `
+  const rows = users.map((u) => {
+    const scopeLabel = u.role === "employee"
+      ? (empById[u.employeeId] ? empById[u.employeeId].nameEn : u.employeeId || "—")
+      : u.lineId ? escapeHtml((lineById[u.lineId] && lineById[u.lineId].name) || u.lineId) : "—";
+    return `
     <div class="user-manage-row">
       <div>
         <div class="user-manage-name">${escapeHtml(u.displayName || u.username)}</div>
         <div class="user-manage-username">@${escapeHtml(u.username)}</div>
       </div>
       <div><span class="user-role-badge user-role-${escapeHtml(u.role)}">${escapeHtml(ROLE_LABELS[u.role] || u.role)}</span></div>
-      <div>${u.lineId ? escapeHtml((lineById[u.lineId] && lineById[u.lineId].name) || u.lineId) : "—"}</div>
+      <div>${scopeLabel}</div>
       <div class="user-manage-actions">
         <button class="btn-edit-row" data-action="edit-user" data-id="${escapeHtml(u.id)}">แก้ไข</button>
         <button class="btn-icon" title="ลบบัญชี" data-action="delete-user" data-id="${escapeHtml(u.id)}">${icons.trash}</button>
       </div>
     </div>
+  `;
+  }).join("");
+
+  const roleButtons = ["shift_leader", "employee", "admin"].map((r) => `
+    <button class="level-btn${userForm.role === r ? " active" : ""}" style="${userForm.role === r ? ROLE_COLORS[r] : ROLE_IDLE}" data-action="set-user-role" data-role="${r}">${escapeHtml(ROLE_LABELS[r])}</button>
   `).join("");
 
   return `
@@ -44,15 +63,18 @@ export function renderUsers({ users, lines, userForm, lineForm }) {
         <div class="task-assign-second-row">
           <div>
             <div class="field-label" style="margin-bottom:8px">บทบาท</div>
-            <div class="level-select-row">
-              <button class="level-btn${userForm.role === "shift_leader" ? " active" : ""}" style="${userForm.role === "shift_leader" ? "border-color:#0c7f93;background:#0c7f93;color:#fff" : "border-color:#dbe3e9;background:#f5f8fa;color:#5a6a78"}" data-action="set-user-role" data-role="shift_leader">หัวหน้ากะ</button>
-              <button class="level-btn${userForm.role === "admin" ? " active" : ""}" style="${userForm.role === "admin" ? "border-color:#7c4dbc;background:#7c4dbc;color:#fff" : "border-color:#dbe3e9;background:#f5f8fa;color:#5a6a78"}" data-action="set-user-role" data-role="admin">ผู้ดูแลระบบ</button>
-            </div>
+            <div class="level-select-row">${roleButtons}</div>
           </div>
           ${userForm.role === "shift_leader" ? `
             <div style="flex:1;min-width:200px">
               <div class="field-label" style="margin-bottom:8px">สายที่รับผิดชอบ</div>
               <select class="field-input" id="user-line-select">${lineOptions}</select>
+            </div>
+          ` : ""}
+          ${userForm.role === "employee" ? `
+            <div style="flex:1;min-width:220px">
+              <div class="field-label" style="margin-bottom:8px">ผูกกับพนักงาน</div>
+              <select class="field-input" id="user-employee-select">${empOptions}</select>
             </div>
           ` : ""}
           <button class="btn-gradient" data-action="save-user">${icons.plus} ${isEditing ? "บันทึก" : "เพิ่มบัญชี"}</button>
@@ -62,7 +84,7 @@ export function renderUsers({ users, lines, userForm, lineForm }) {
 
       <div class="card" style="padding:0;overflow:hidden;margin-top:18px">
         <div class="user-manage-row user-manage-head">
-          <div>บัญชี</div><div>บทบาท</div><div>สาย</div><div></div>
+          <div>บัญชี</div><div>บทบาท</div><div>สาย / พนักงาน</div><div></div>
         </div>
         ${rows || `<div class="task-empty" style="margin:16px">ยังไม่มีบัญชี</div>`}
       </div>

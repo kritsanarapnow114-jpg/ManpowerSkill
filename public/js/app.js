@@ -14,6 +14,7 @@ import { renderAchievements } from "./screens/achievements.js";
 import { renderWorkLog } from "./screens/worklog.js";
 import { renderLogin } from "./screens/login.js";
 import { renderUsers } from "./screens/users.js";
+import { renderMyTasks, renderMyWorkLog } from "./screens/myportal.js";
 
 const appEl = document.getElementById("app");
 
@@ -41,8 +42,9 @@ const state = {
   workLogs: [],
   workLogForm: { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" },
   users: [],
-  userForm: { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: null },
+  userForm: { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: null, employeeId: null },
   lineForm: { name: "" },
+  myWorkLogForm: { stationId: null, date: todayISO(), hours: "", note: "" },
   loading: true,
   error: null,
 };
@@ -59,6 +61,8 @@ const PAGE_MAP = {
   achievements: ["ผลงานพนักงาน", "Employee achievements"],
   worklog: ["บันทึกการทำงาน", "Daily work log"],
   users: ["จัดการผู้ใช้งาน", "Manage accounts"],
+  "my-tasks": ["งานของฉัน", "My tasks"],
+  "my-worklog": ["บันทึกชั่วโมงของฉัน", "My work log"],
 };
 
 function findEmployee(id) {
@@ -108,6 +112,9 @@ function editEmp(id) {
 }
 
 function addNew() {
+  const position = state.meta.positions[0] || state.meta.defaultPosition;
+  const g1Axes = state.meta.g1AxesByPosition[position] || state.meta.g1AxesByPosition[state.meta.defaultPosition];
+  const g2Axes = state.meta.g2AxesByPosition[position] || state.meta.g2AxesByPosition[state.meta.defaultPosition];
   state.draft = {
     id: null,
     isNew: true,
@@ -116,14 +123,14 @@ function addNew() {
     nickname: "",
     photo: "",
     gender: state.meta.genders[0],
-    position: state.meta.positions[0] || "",
+    position,
     empCode: "EMP-",
     join: "2026",
     level: "Basic",
     lineId: state.currentUser.role === "admin" ? (state.meta.lines[0] && state.meta.lines[0].id) : state.currentUser.lineId,
     leaveQuota: { ...state.meta.defaultLeaveQuota },
-    g1: state.meta.g1Axes.map(() => 0),
-    g2: state.meta.g2Axes.map(() => 0),
+    g1: g1Axes.map(() => 0),
+    g2: g2Axes.map(() => 0),
     st: Object.fromEntries(state.meta.stations.map((s) => [s.id, { hours: 0, trained: false }])),
     stats: { today: "0/0", qc: "0/0", rework: "0/0", defect: "0/0" },
   };
@@ -191,7 +198,8 @@ function updateDraftSlider(group, index, value) {
   if (valEl) valEl.textContent = v + "%";
 
   const radarEl = document.getElementById(`radar-${group}`);
-  const axes = state.meta[group === "g1" ? "g1Axes" : "g2Axes"];
+  const axesByPosition = state.meta[group === "g1" ? "g1AxesByPosition" : "g2AxesByPosition"];
+  const axes = axesByPosition[state.draft.position] || axesByPosition[state.meta.defaultPosition];
   const color = group === "g1" ? "#2f8fd0" : "#d99a17";
   const fill = group === "g1" ? "rgba(47,143,208,.18)" : "rgba(217,154,23,.26)";
   if (radarEl) {
@@ -500,13 +508,21 @@ async function deleteWorkLog(id) {
 }
 
 function emptyUserForm() {
-  return { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: state.meta.lines[0] ? state.meta.lines[0].id : null };
+  return {
+    editingId: null, username: "", displayName: "", password: "", role: "shift_leader",
+    lineId: state.meta.lines[0] ? state.meta.lines[0].id : null,
+    employeeId: state.employees[0] ? state.employees[0].id : null,
+  };
 }
 
 function editUser(id) {
   const u = state.users.find((x) => x.id === id);
   if (!u) return;
-  state.userForm = { editingId: u.id, username: u.username, displayName: u.displayName, password: "", role: u.role, lineId: u.lineId || (state.meta.lines[0] && state.meta.lines[0].id) };
+  state.userForm = {
+    editingId: u.id, username: u.username, displayName: u.displayName, password: "", role: u.role,
+    lineId: u.lineId || (state.meta.lines[0] && state.meta.lines[0].id),
+    employeeId: u.employeeId || (state.employees[0] && state.employees[0].id),
+  };
   render();
 }
 
@@ -521,11 +537,11 @@ function setUserRole(role) {
 }
 
 async function saveUser() {
-  const { editingId, username, displayName, password, role, lineId } = state.userForm;
+  const { editingId, username, displayName, password, role, lineId, employeeId } = state.userForm;
   if (!editingId && !username.trim()) return;
   if (!editingId && password.length < 6) { state.error = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"; render(); return; }
   try {
-    const payload = { displayName, role, lineId };
+    const payload = { displayName, role, lineId, employeeId };
     if (password) payload.password = password;
     if (editingId) {
       await api.updateUser(editingId, payload);
@@ -563,6 +579,68 @@ async function addLine() {
     state.error = null;
   } catch (err) {
     state.error = "เพิ่มสายไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function refreshMyData() {
+  const [employees, tasks, workLogs] = await Promise.all([api.listEmployees(), api.listTasks(), api.listWorkLogs()]);
+  state.employees = employees;
+  state.tasks = tasks;
+  state.workLogs = workLogs;
+  state.selId = employees[0] ? employees[0].id : null;
+}
+
+async function myCompleteTask(taskId) {
+  try {
+    await api.setTaskDone(taskId, true);
+    await refreshMyData();
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function myReopenTask(taskId) {
+  try {
+    await api.setTaskDone(taskId, false);
+    await refreshMyData();
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function myAddWorkLog() {
+  const stationId = state.myWorkLogForm.stationId || (state.meta.stations[0] && state.meta.stations[0].id);
+  const hours = Number(state.myWorkLogForm.hours);
+  if (!stationId || !Number.isFinite(hours) || hours <= 0) return;
+  try {
+    await api.createWorkLog({
+      stationId,
+      date: state.myWorkLogForm.date || todayISO(),
+      hours,
+      note: state.myWorkLogForm.note || "",
+    });
+    await refreshMyData();
+    state.myWorkLogForm.hours = "";
+    state.myWorkLogForm.note = "";
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกชั่วโมงทำงานไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+async function myDeleteWorkLog(id) {
+  try {
+    await api.deleteWorkLog(id);
+    await refreshMyData();
+    state.error = null;
+  } catch (err) {
+    state.error = "ลบรายการไม่สำเร็จ: " + err.message;
   }
   render();
 }
@@ -611,9 +689,13 @@ async function loadAppData() {
     state.achievementForm.employeeId = state.selId;
     state.workLogForm.employeeId = state.selId;
     state.workLogForm.stationId = meta.stations[0] ? meta.stations[0].id : null;
+    state.myWorkLogForm.stationId = meta.stations[0] ? meta.stations[0].id : null;
     if (state.currentUser.role === "admin") {
       state.users = await api.listUsers();
       state.userForm = emptyUserForm();
+    }
+    if (state.currentUser.role === "employee") {
+      state.screen = "detail";
     }
     state.loading = false;
     state.error = null;
@@ -658,9 +740,80 @@ setUnauthorizedHandler(() => {
   render();
 });
 
+function renderEmployeeShell() {
+  const { screen } = state;
+  const pg = PAGE_MAP[screen] || PAGE_MAP.detail;
+  const myScreen = screen === "my-tasks" || screen === "my-worklog" ? screen : "detail";
+
+  let content = "";
+  if (state.loading) {
+    content = `<div class="card">กำลังโหลดข้อมูล...</div>`;
+  } else if (myScreen === "my-tasks") {
+    const emp = state.employees[0];
+    content = renderMyTasks({ tasks: emp ? emp.tasks : [] });
+  } else if (myScreen === "my-worklog") {
+    content = renderMyWorkLog({ stations: state.meta.stations, logs: state.workLogs, form: state.myWorkLogForm });
+  } else {
+    const emp = state.employees[0];
+    if (emp) {
+      const certs = state.certificates.filter((c) => c.employeeId === emp.id);
+      const achievements = state.achievements.filter((a) => a.employeeId === emp.id);
+      content = renderDetail({ emp, certificates: certs, achievements, readOnly: true });
+    }
+  }
+
+  appEl.innerHTML = `
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">NB</div>
+          <div>
+            <div class="brand-name">NBC Skills</div>
+            <div class="brand-sub">ระบบข้อมูลความสามารถ</div>
+          </div>
+        </div>
+        <button class="nav-btn${myScreen === "detail" ? " active" : ""}" data-nav="detail">
+          ${icons.employees}<span>ข้อมูลของฉัน<small>My profile</small></span>
+        </button>
+        <button class="nav-btn${myScreen === "my-tasks" ? " active" : ""}" data-nav="my-tasks">
+          ${icons.tasks}<span>งานของฉัน<small>My tasks</small></span>
+        </button>
+        <button class="nav-btn${myScreen === "my-worklog" ? " active" : ""}" data-nav="my-worklog">
+          ${icons.worklog}<span>บันทึกชั่วโมงของฉัน<small>My work log</small></span>
+        </button>
+        <div class="sidebar-footer">
+          <div class="sidebar-user">
+            <div class="sidebar-user-info">
+              <div class="sidebar-user-name">${escapeHtml(state.currentUser.displayName || state.currentUser.username)}</div>
+              <div class="sidebar-user-role">พนักงาน</div>
+            </div>
+            <button class="sidebar-logout-btn" title="ออกจากระบบ" data-action="logout">${icons.logout}</button>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div style="min-width:0">
+            <div class="page-title">${escapeHtml(myScreen === "detail" ? "ข้อมูลของฉัน" : pg[0])}</div>
+            <div class="page-sub">${escapeHtml(myScreen === "detail" ? "My profile" : pg[1])}</div>
+          </div>
+        </header>
+        <div class="content">
+          ${state.error ? `<div class="card" style="border-color:#f2b8b8;color:#b42318;margin-bottom:16px">${escapeHtml(state.error)}</div>` : ""}
+          ${content}
+        </div>
+      </main>
+    </div>
+  `;
+}
+
 function renderShell() {
   if (!state.currentUser) {
     appEl.innerHTML = renderLogin({ form: state.loginForm });
+    return;
+  }
+  if (state.currentUser.role === "employee") {
+    renderEmployeeShell();
     return;
   }
 
@@ -689,7 +842,7 @@ function renderShell() {
   } else if (screen === "worklog") {
     content = renderWorkLog({ employees: state.employees, stations: state.meta.stations, logs: state.workLogs, form: state.workLogForm });
   } else if (screen === "users" && isAdmin) {
-    content = renderUsers({ users: state.users, lines: state.meta.lines, userForm: state.userForm, lineForm: state.lineForm });
+    content = renderUsers({ users: state.users, lines: state.meta.lines, employees: state.employees, userForm: state.userForm, lineForm: state.lineForm });
   } else if (screen === "form" && state.draft) {
     content = renderForm({ draft: state.draft, meta: state.meta, currentUser: state.currentUser });
   } else {
@@ -833,6 +986,11 @@ appEl.addEventListener("click", (e) => {
   else if (action === "save-user") saveUser();
   else if (action === "delete-user") deleteUser(actionEl.dataset.id);
   else if (action === "add-line") addLine();
+  else if (action === "go-my-tasks") go("my-tasks");
+  else if (action === "my-complete-task") myCompleteTask(actionEl.dataset.taskId);
+  else if (action === "my-reopen-task") myReopenTask(actionEl.dataset.taskId);
+  else if (action === "my-add-worklog") myAddWorkLog();
+  else if (action === "my-delete-worklog") myDeleteWorkLog(actionEl.dataset.id);
 });
 
 appEl.addEventListener("input", (e) => {
@@ -883,6 +1041,10 @@ appEl.addEventListener("input", (e) => {
     state.userForm.password = t.value;
   } else if (t.id === "line-name-input") {
     state.lineForm.name = t.value;
+  } else if (t.id === "my-wl-hours-input") {
+    state.myWorkLogForm.hours = t.value;
+  } else if (t.id === "my-wl-note-input") {
+    state.myWorkLogForm.note = t.value;
   }
 });
 
@@ -954,8 +1116,14 @@ appEl.addEventListener("change", (e) => {
     state.achievementForm.date = t.value;
   } else if (t.id === "user-line-select") {
     state.userForm.lineId = t.value;
+  } else if (t.id === "user-employee-select") {
+    state.userForm.employeeId = t.value;
   } else if (t.id === "employee-line-select") {
     setDraftField("lineId", t.value);
+  } else if (t.id === "my-wl-station-select") {
+    state.myWorkLogForm.stationId = t.value;
+  } else if (t.id === "my-wl-date-input") {
+    state.myWorkLogForm.date = t.value;
   }
 });
 

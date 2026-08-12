@@ -46,6 +46,13 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function forbidRoles(...roles) {
+  return (req, res, next) => {
+    if (req.user && roles.includes(req.user.role)) return res.status(403).json({ error: "ไม่มีสิทธิ์ทำรายการนี้" });
+    next();
+  };
+}
+
 async function hashPassword(password) {
   return bcrypt.hash(password, 10);
 }
@@ -54,4 +61,4 @@ async function comparePassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
-module.exports = { sign, verify, requireAuth, requireAdmin, hashPassword, comparePassword, MAX_AGE_MS };
+module.exports = { sign, verify, requireAuth, requireAdmin, forbidRoles, hashPassword, comparePassword, MAX_AGE_MS };

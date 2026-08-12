@@ -3,7 +3,9 @@ import { radarSVG } from "../radar.js";
 
 export function renderForm({ draft, meta, currentUser }) {
   const isAdmin = currentUser && currentUser.role === "admin";
-  const g1Sliders = meta.g1Axes.map((axis, i) => `
+  const g1Axes = meta.g1AxesByPosition[draft.position] || meta.g1AxesByPosition[meta.defaultPosition];
+  const g2Axes = meta.g2AxesByPosition[draft.position] || meta.g2AxesByPosition[meta.defaultPosition];
+  const g1Sliders = g1Axes.map((axis, i) => `
     <div class="slider-row">
       <span class="slider-label">${escapeHtml(axis.th.replace(/\n/g, " "))}</span>
       <input type="range" min="0" max="100" value="${draft.g1[i]}" data-slider="g1" data-index="${i}">
@@ -11,7 +13,7 @@ export function renderForm({ draft, meta, currentUser }) {
     </div>
   `).join("");
 
-  const g2Sliders = meta.g2Axes.map((axis, i) => `
+  const g2Sliders = g2Axes.map((axis, i) => `
     <div class="slider-row">
       <span class="slider-label">${escapeHtml(axis.th.replace(/\n/g, " "))}</span>
       <input type="range" min="0" max="100" value="${draft.g2[i]}" data-slider="g2" data-index="${i}">
@@ -56,8 +58,8 @@ export function renderForm({ draft, meta, currentUser }) {
     return `<button class="level-btn${active ? " active" : ""}" style="${style}" data-action="set-gender" data-gender="${escapeHtml(g)}">${escapeHtml(g)}</button>`;
   }).join("");
 
-  const radar1 = radarSVG(meta.g1Axes.map((axis, i) => ({ label: axis.th, v: draft.g1[i] })), "#2f8fd0", "rgba(47,143,208,.18)");
-  const radar2 = radarSVG(meta.g2Axes.map((axis, i) => ({ label: axis.th, v: draft.g2[i] })), "#d99a17", "rgba(217,154,23,.26)");
+  const radar1 = radarSVG(g1Axes.map((axis, i) => ({ label: axis.th, v: draft.g1[i] })), "#2f8fd0", "rgba(47,143,208,.18)");
+  const radar2 = radarSVG(g2Axes.map((axis, i) => ({ label: axis.th, v: draft.g2[i] })), "#d99a17", "rgba(217,154,23,.26)");
 
   return `
     <div class="form-wrap">

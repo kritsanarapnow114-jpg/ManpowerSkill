@@ -27,7 +27,17 @@ function serialize(row) {
 
 router.get("/", async (req, res, next) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM work_logs ORDER BY date DESC, created_at DESC");
+    let sql = "SELECT wl.* FROM work_logs wl";
+    let params = [];
+    if (req.user.role === "shift_leader") {
+      sql += " JOIN employees e ON e.id = wl.employee_id WHERE e.line_id = $1";
+      params = [req.user.lineId];
+    } else if (req.user.role === "employee") {
+      sql += " WHERE wl.employee_id = $1";
+      params = [req.user.employeeId];
+    }
+    sql += " ORDER BY wl.date DESC, wl.created_at DESC";
+    const { rows } = await pool.query(sql, params);
     res.json(rows.map(serialize));
   } catch (err) {
     next(err);
@@ -36,10 +46,16 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const { employeeId, stationId, date, hours, note } = req.body || {};
+    const body = req.body || {};
+    const employeeId = req.user.role === "employee" ? req.user.employeeId : body.employeeId;
+    const { stationId, date, hours, note } = body;
+
     if (!employeeId) return res.status(400).json({ error: "Valid employeeId is required" });
-    const emp = await pool.query("SELECT id FROM employees WHERE id = $1", [employeeId]);
+    const emp = await pool.query("SELECT id, line_id FROM employees WHERE id = $1", [employeeId]);
     if (!emp.rows[0]) return res.status(400).json({ error: "Valid employeeId is required" });
+    if (req.user.role === "shift_leader" && emp.rows[0].line_id !== req.user.lineId) {
+      return res.status(403).json({ error: "คุณบันทึกได้เฉพาะพนักงานในสายของตัวเองเท่านั้น" });
+    }
 
     if (!stationId) return res.status(400).json({ error: "Valid stationId is required" });
     const stn = await pool.query("SELECT id FROM stations WHERE id = $1", [stationId]);
@@ -64,6 +80,18 @@ router.post("/", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
+    const existing = await pool.query(
+      "SELECT wl.id, wl.employee_id, e.line_id FROM work_logs wl JOIN employees e ON e.id = wl.employee_id WHERE wl.id = $1",
+      [req.params.id]
+    );
+    if (!existing.rows[0]) return res.status(404).json({ error: "Work log not found" });
+    if (req.user.role === "shift_leader" && existing.rows[0].line_id !== req.user.lineId) {
+      return res.status(404).json({ error: "Work log not found" });
+    }
+    if (req.user.role === "employee" && existing.rows[0].employee_id !== req.user.employeeId) {
+      return res.status(404).json({ error: "Work log not found" });
+    }
+
     const result = await pool.query("DELETE FROM work_logs WHERE id = $1", [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: "Work log not found" });
     res.status(204).end();

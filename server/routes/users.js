@@ -17,8 +17,10 @@ router.use(async (req, res, next) => {
 
 router.use(requireAdmin);
 
+const ROLES = ["admin", "shift_leader", "employee"];
+
 function serialize(row) {
-  return { id: row.id, username: row.username, role: row.role, lineId: row.line_id, displayName: row.display_name };
+  return { id: row.id, username: row.username, role: row.role, lineId: row.line_id, employeeId: row.employee_id, displayName: row.display_name };
 }
 
 router.get("/", async (req, res, next) => {
@@ -32,17 +34,25 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const { username, password, role, lineId, displayName } = req.body || {};
+    const { username, password, role, lineId, employeeId, displayName } = req.body || {};
     if (typeof username !== "string" || !username.trim()) return res.status(400).json({ error: "username is required" });
     if (typeof password !== "string" || password.length < 6) return res.status(400).json({ error: "password ต้องมีอย่างน้อย 6 ตัวอักษร" });
-    if (role !== "admin" && role !== "shift_leader") return res.status(400).json({ error: "role must be admin or shift_leader" });
+    if (!ROLES.includes(role)) return res.status(400).json({ error: `role must be one of ${ROLES.join(", ")}` });
 
     let lid = null;
+    let eid = null;
     if (role === "shift_leader") {
       if (typeof lineId !== "string" || !lineId.trim()) return res.status(400).json({ error: "lineId is required for shift_leader" });
       const lineCheck = await pool.query("SELECT id FROM lines WHERE id = $1", [lineId]);
       if (!lineCheck.rows[0]) return res.status(400).json({ error: "Invalid lineId" });
       lid = lineId;
+    } else if (role === "employee") {
+      if (typeof employeeId !== "string" || !employeeId.trim()) return res.status(400).json({ error: "employeeId is required for employee accounts" });
+      const empCheck = await pool.query("SELECT id FROM employees WHERE id = $1", [employeeId]);
+      if (!empCheck.rows[0]) return res.status(400).json({ error: "Invalid employeeId" });
+      const linked = await pool.query("SELECT id FROM users WHERE employee_id = $1", [employeeId]);
+      if (linked.rows[0]) return res.status(400).json({ error: "พนักงานคนนี้มีบัญชีอยู่แล้ว" });
+      eid = employeeId;
     }
 
     const existing = await pool.query("SELECT id FROM users WHERE username = $1", [username.trim()]);
@@ -51,8 +61,8 @@ router.post("/", async (req, res, next) => {
     const id = "U" + Date.now();
     const hash = await hashPassword(password);
     await pool.query(
-      "INSERT INTO users (id, username, password_hash, role, line_id, display_name) VALUES ($1,$2,$3,$4,$5,$6)",
-      [id, username.trim(), hash, role, lid, typeof displayName === "string" ? displayName.trim() : ""]
+      "INSERT INTO users (id, username, password_hash, role, line_id, employee_id, display_name) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [id, username.trim(), hash, role, lid, eid, typeof displayName === "string" ? displayName.trim() : ""]
     );
     const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
     res.status(201).json(serialize(rows[0]));
@@ -66,16 +76,25 @@ router.put("/:id", async (req, res, next) => {
     const existing = await pool.query("SELECT * FROM users WHERE id = $1", [req.params.id]);
     if (!existing.rows[0]) return res.status(404).json({ error: "User not found" });
 
-    const { password, role, lineId, displayName } = req.body || {};
-    const finalRole = role === "admin" || role === "shift_leader" ? role : existing.rows[0].role;
+    const { password, role, lineId, employeeId, displayName } = req.body || {};
+    const finalRole = ROLES.includes(role) ? role : existing.rows[0].role;
 
     let lid = null;
+    let eid = null;
     if (finalRole === "shift_leader") {
       const nextLineId = typeof lineId === "string" && lineId.trim() ? lineId.trim() : existing.rows[0].line_id;
       if (!nextLineId) return res.status(400).json({ error: "lineId is required for shift_leader" });
       const lineCheck = await pool.query("SELECT id FROM lines WHERE id = $1", [nextLineId]);
       if (!lineCheck.rows[0]) return res.status(400).json({ error: "Invalid lineId" });
       lid = nextLineId;
+    } else if (finalRole === "employee") {
+      const nextEmployeeId = typeof employeeId === "string" && employeeId.trim() ? employeeId.trim() : existing.rows[0].employee_id;
+      if (!nextEmployeeId) return res.status(400).json({ error: "employeeId is required for employee accounts" });
+      const empCheck = await pool.query("SELECT id FROM employees WHERE id = $1", [nextEmployeeId]);
+      if (!empCheck.rows[0]) return res.status(400).json({ error: "Invalid employeeId" });
+      const linked = await pool.query("SELECT id FROM users WHERE employee_id = $1 AND id <> $2", [nextEmployeeId, req.params.id]);
+      if (linked.rows[0]) return res.status(400).json({ error: "พนักงานคนนี้มีบัญชีอยู่แล้ว" });
+      eid = nextEmployeeId;
     }
 
     const finalDisplayName = typeof displayName === "string" ? displayName.trim() : existing.rows[0].display_name;
@@ -84,13 +103,13 @@ router.put("/:id", async (req, res, next) => {
       if (password.length < 6) return res.status(400).json({ error: "password ต้องมีอย่างน้อย 6 ตัวอักษร" });
       const hash = await hashPassword(password);
       await pool.query(
-        "UPDATE users SET role=$1, line_id=$2, display_name=$3, password_hash=$4 WHERE id=$5",
-        [finalRole, lid, finalDisplayName, hash, req.params.id]
+        "UPDATE users SET role=$1, line_id=$2, employee_id=$3, display_name=$4, password_hash=$5 WHERE id=$6",
+        [finalRole, lid, eid, finalDisplayName, hash, req.params.id]
       );
     } else {
       await pool.query(
-        "UPDATE users SET role=$1, line_id=$2, display_name=$3 WHERE id=$4",
-        [finalRole, lid, finalDisplayName, req.params.id]
+        "UPDATE users SET role=$1, line_id=$2, employee_id=$3, display_name=$4 WHERE id=$5",
+        [finalRole, lid, eid, finalDisplayName, req.params.id]
       );
     }
 

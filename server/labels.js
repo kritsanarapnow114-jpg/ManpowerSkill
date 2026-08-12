@@ -1,23 +1,75 @@
 // Fixed label sets shared by every employee (mirrors the design prototype's constants).
 "use strict";
 
-const G1_AXES = [
-  { th: "คุณภาพงาน", en: "Defect detection" },
-  { th: "การปฏิบัติตาม process", en: "Process compliance" },
-  { th: "การทำงานตามเวลาที่กำหนด", en: "Cycle time" },
-  { th: "ความถูกต้องของงาน", en: "Feeling judgment" },
-  { th: "ประสิทธิภาพ", en: "Basic standard" },
-  { th: "ความปลอดภัย 5ส", en: "Safety 5S" },
-];
+// Skill axes differ by position - each does genuinely different work, so "Advance standard"
+// and "%Skill judgment" are keyed per position rather than shared. DEFAULT_POSITION's set is
+// used as a fallback for any employee whose position doesn't match one of these exactly
+// (legacy/free-text positions).
+const DEFAULT_POSITION = "Material Handler";
 
-const G2_AXES = [
-  { th: "Warehouse Operation", en: "Warehouse Operation" },
-  { th: "Forklift Operation", en: "Forklift Operation" },
-  { th: "Packing Line Operation", en: "Packing Line Operation" },
-  { th: "Quality Control", en: "Quality Control" },
-  { th: "System & Documentation", en: "System & Documentation" },
-  { th: "Safety & Problem Solving", en: "Safety & Problem Solving" },
-];
+// \n in a label breaks it onto a second line in the radar chart (see radar.js) - used on
+// longer labels so they don't overflow into a neighboring axis or the next card.
+const G1_AXES_BY_POSITION = {
+  "Material Handler": [
+    { th: "คุณภาพงาน", en: "Work Quality" },
+    { th: "การปฏิบัติ\nตามขั้นตอน", en: "Process\nCompliance" },
+    { th: "ความตรงต่อเวลา", en: "Punctuality &\nCycle Time" },
+    { th: "ความถูกต้อง\nของเอกสาร", en: "Documentation\nAccuracy" },
+    { th: "ประสิทธิภาพ\nการทำงาน", en: "Work Efficiency" },
+    { th: "ความปลอดภัย 5ส", en: "Safety & 5S" },
+  ],
+  "Material Handler (Cert Forklift)": [
+    { th: "ความปลอดภัย\nในการขับ", en: "Driving Safety" },
+    { th: "การตรวจเช็ครถ\nก่อน-หลังใช้งาน", en: "Pre/Post-use\nInspection" },
+    { th: "ความแม่นยำ\nในการยก-วาง", en: "Load Precision" },
+    { th: "ความตรงต่อเวลา\nในการขนส่ง", en: "Delivery\nTimeliness" },
+    { th: "การดูแลรักษา\nเครื่องจักร", en: "Equipment Care" },
+    { th: "ความปลอดภัย 5ส", en: "Safety & 5S" },
+  ],
+  "Material Handler Shift Leader": [
+    { th: "คุณภาพงานทีม", en: "Team Work\nQuality" },
+    { th: "การบริหาร\nกำหนดเวลา/เป้าหมาย", en: "Schedule & Target\nManagement" },
+    { th: "ความถูกต้อง\nในการตัดสินใจ", en: "Decision Accuracy" },
+    { th: "การสื่อสาร\nและถ่ายทอดงาน", en: "Communication &\nDelegation" },
+    { th: "ประสิทธิภาพ\nการบริหารทีม", en: "Team Efficiency" },
+    { th: "ความปลอดภัย 5ส", en: "Safety & 5S" },
+  ],
+};
+
+const G2_AXES_BY_POSITION = {
+  "Material Handler": [
+    { th: "Checker /\nตรวจนับสินค้า", en: "Checker" },
+    { th: "Truck Scale\nOperation", en: "Truck Scale\nOperation" },
+    { th: "System &\nDocumentation", en: "System &\nDocumentation" },
+    { th: "Inventory\nAccuracy", en: "Inventory Accuracy" },
+    { th: "Quality Control", en: "Quality Control" },
+    { th: "Safety & Problem\nSolving", en: "Safety & Problem\nSolving" },
+  ],
+  "Material Handler (Cert Forklift)": [
+    { th: "Forklift\nOperation", en: "Forklift Operation" },
+    { th: "Load Handling", en: "Load Handling" },
+    { th: "Packing &\nBundling", en: "Packing & Bundling" },
+    { th: "Racking &\nStorage", en: "Racking & Storage" },
+    { th: "Hazard\nAwareness", en: "Hazard Awareness" },
+    { th: "Equipment\nMaintenance\nAwareness", en: "Equipment\nMaintenance\nAwareness" },
+  ],
+  "Material Handler Shift Leader": [
+    { th: "Team\nCoordination", en: "Team Coordination" },
+    { th: "Problem Solving\n& Escalation", en: "Problem Solving\n& Escalation" },
+    { th: "Training &\nMentoring", en: "Training &\nMentoring" },
+    { th: "Workload\nPlanning", en: "Workload Planning" },
+    { th: "Reporting &\nDocumentation", en: "Reporting &\nDocumentation" },
+    { th: "Safety Compliance\nOversight", en: "Safety Compliance\nOversight" },
+  ],
+};
+
+function g1AxesFor(position) {
+  return G1_AXES_BY_POSITION[position] || G1_AXES_BY_POSITION[DEFAULT_POSITION];
+}
+
+function g2AxesFor(position) {
+  return G2_AXES_BY_POSITION[position] || G2_AXES_BY_POSITION[DEFAULT_POSITION];
+}
 
 const STATIONS = [
   { code: "ST-01", name: "Press · ปั๊มขึ้นรูป" },
@@ -32,7 +84,7 @@ const STATIONS = [
   { code: "ST-10", name: "Final · ตรวจปลายสาย" },
 ];
 
-const POSITIONS = ["Material Handler", "Material Handler Shift lead"];
+const POSITIONS = ["Material Handler", "Material Handler (Cert Forklift)", "Material Handler Shift Leader"];
 
 const LEVELS = ["Basic", "Advance", "Expert"];
 
@@ -61,6 +113,7 @@ const STATION_LEVELS = [
 ];
 
 module.exports = {
-  G1_AXES, G2_AXES, STATIONS, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA,
+  G1_AXES_BY_POSITION, G2_AXES_BY_POSITION, DEFAULT_POSITION, g1AxesFor, g2AxesFor,
+  STATIONS, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, LEAVE_TYPE_KEYS, DEFAULT_LEAVE_QUOTA,
   TASK_LEVELS, TASK_LEVEL_WEIGHT, TASK_SKILL_BUMP, STATION_LEVELS,
 };

@@ -16,13 +16,16 @@ router.use(async (req, res, next) => {
 });
 
 function serializeUser(row) {
-  return { id: row.id, username: row.username, role: row.role, lineId: row.line_id, displayName: row.display_name };
+  return { id: row.id, username: row.username, role: row.role, lineId: row.line_id, employeeId: row.employee_id, displayName: row.display_name };
 }
 
 const isSecure = () => process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 
 function setSessionCookie(res, user) {
-  const token = sign({ userId: user.id, username: user.username, role: user.role, lineId: user.line_id, displayName: user.display_name });
+  const token = sign({
+    userId: user.id, username: user.username, role: user.role,
+    lineId: user.line_id, employeeId: user.employee_id, displayName: user.display_name,
+  });
   res.cookie("session", token, {
     httpOnly: true,
     sameSite: "lax",

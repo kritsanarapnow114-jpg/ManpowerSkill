@@ -43,9 +43,17 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
     return `<button class="level-btn${active ? " active" : ""}" style="${style}" data-action="set-task-level" data-level="${escapeHtml(l)}">${escapeHtml(l)}</button>`;
   }).join("");
 
+  // A linked skill axis only makes sense when every selected assignee shares one position
+  // (each position now measures different things), so the picker is scoped to that position.
+  const selectedEmps = taskForm.employeeIds.map((id) => empById[id]).filter(Boolean);
+  const selectedPositions = new Set(selectedEmps.map((e) => e.position));
+  const commonPosition = selectedPositions.size === 1 ? [...selectedPositions][0] : null;
+  const axisG1 = commonPosition ? (meta.g1AxesByPosition[commonPosition] || meta.g1AxesByPosition[meta.defaultPosition]) : null;
+  const axisG2 = commonPosition ? (meta.g2AxesByPosition[commonPosition] || meta.g2AxesByPosition[meta.defaultPosition]) : null;
+
   const axisOptions = [`<option value="">ไม่เกี่ยวข้องกับทักษะ</option>`]
-    .concat(meta.g1Axes.map((a, i) => `<option value="g1:${i}" ${taskForm.axisGroup === "g1" && taskForm.axisIndex === i ? "selected" : ""}>Advance · ${escapeHtml(a.en)}</option>`))
-    .concat(meta.g2Axes.map((a, i) => `<option value="g2:${i}" ${taskForm.axisGroup === "g2" && taskForm.axisIndex === i ? "selected" : ""}>Skill · ${escapeHtml(a.en)}</option>`))
+    .concat(axisG1 ? axisG1.map((a, i) => `<option value="g1:${i}" ${taskForm.axisGroup === "g1" && taskForm.axisIndex === i ? "selected" : ""}>Advance · ${escapeHtml(a.en)}</option>`) : [])
+    .concat(axisG2 ? axisG2.map((a, i) => `<option value="g2:${i}" ${taskForm.axisGroup === "g2" && taskForm.axisIndex === i ? "selected" : ""}>Skill · ${escapeHtml(a.en)}</option>`) : [])
     .join("");
 
   const workloadSummary = employees.map((e) => {
@@ -145,7 +153,8 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish }) {
             <input type="date" class="field-input" id="task-due-input" value="${escapeHtml(taskForm.due)}">
           </label>
           <label class="assign-field due">ทักษะที่เกี่ยวข้อง (ถ้ามี)
-            <select class="field-input" id="task-axis-select">${axisOptions}</select>
+            <select class="field-input" id="task-axis-select" ${selectedEmps.length > 1 && !commonPosition ? "disabled" : ""}>${axisOptions}</select>
+            ${selectedEmps.length > 1 && !commonPosition ? `<small style="color:#8494a1;font-size:11px">เลือกได้เมื่อทุกคนตำแหน่งเดียวกัน</small>` : ""}
           </label>
           <button class="btn-gradient" data-action="add-task">${icons.plus} มอบหมาย</button>
         </div>

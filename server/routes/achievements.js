@@ -2,6 +2,7 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
+const { forbidRoles } = require("../auth");
 
 const router = express.Router();
 
@@ -27,7 +28,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.post("/", forbidRoles("employee"), async (req, res, next) => {
   try {
     const { employeeId, title, date, note } = req.body || {};
     if (!employeeId) return res.status(400).json({ error: "Valid employeeId is required" });
@@ -47,7 +48,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", forbidRoles("employee"), async (req, res, next) => {
   try {
     const result = await pool.query("DELETE FROM achievements WHERE id = $1", [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: "Achievement not found" });

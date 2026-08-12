@@ -2,7 +2,7 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
-const { G1_AXES, G2_AXES, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
+const { g1AxesFor, g2AxesFor, LEVELS, GENDERS, LEAVE_TYPE_KEYS } = require("../labels");
 const { clamp, avgOf, passOf, stationLevelOf } = require("../compute");
 
 const router = express.Router();
@@ -103,8 +103,8 @@ async function serialize(row) {
     empCode: row.emp_code,
     join: row.join_year,
     lineId: row.line_id,
-    g1: G1_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
-    g2: G2_AXES.map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
+    g1: g1AxesFor(row.position).map((axis, i) => ({ th: axis.th, en: axis.en, v: g1Values[i] })),
+    g2: g2AxesFor(row.position).map((axis, i) => ({ th: axis.th, en: axis.en, v: g2Values[i] })),
     st: stations.map((s) => {
       const entry = stValues[s.id];
       const hours = stationHours[s.id] || 0;
@@ -168,12 +168,15 @@ function validateBody(body, { partial } = {}) {
     if (!LEVELS.includes(body.level)) errors.push(`level must be one of ${LEVELS.join(", ")}`);
     else out.level = body.level;
   }
+  const positionForAxes = typeof body.position === "string" && body.position.trim() ? body.position.trim() : undefined;
   if (need("g1")) {
-    if (!Array.isArray(body.g1) || body.g1.length !== G1_AXES.length) errors.push(`g1 must have ${G1_AXES.length} values`);
+    const g1Axes = g1AxesFor(positionForAxes);
+    if (!Array.isArray(body.g1) || body.g1.length !== g1Axes.length) errors.push(`g1 must have ${g1Axes.length} values`);
     else out.g1 = body.g1.map(clamp);
   }
   if (need("g2")) {
-    if (!Array.isArray(body.g2) || body.g2.length !== G2_AXES.length) errors.push(`g2 must have ${G2_AXES.length} values`);
+    const g2Axes = g2AxesFor(positionForAxes);
+    if (!Array.isArray(body.g2) || body.g2.length !== g2Axes.length) errors.push(`g2 must have ${g2Axes.length} values`);
     else out.g2 = body.g2.map(clamp);
   }
   if (need("st")) {
@@ -209,11 +212,16 @@ function validateBody(body, { partial } = {}) {
 
 router.get("/", async (req, res, next) => {
   try {
-    const scoped = req.user.role !== "admin";
-    const { rows } = await pool.query(
-      scoped ? "SELECT * FROM employees WHERE line_id = $1 ORDER BY emp_code" : "SELECT * FROM employees ORDER BY emp_code",
-      scoped ? [req.user.lineId] : []
-    );
+    let sql = "SELECT * FROM employees ORDER BY emp_code";
+    let params = [];
+    if (req.user.role === "shift_leader") {
+      sql = "SELECT * FROM employees WHERE line_id = $1 ORDER BY emp_code";
+      params = [req.user.lineId];
+    } else if (req.user.role === "employee") {
+      sql = "SELECT * FROM employees WHERE id = $1";
+      params = [req.user.employeeId];
+    }
+    const { rows } = await pool.query(sql, params);
     res.json(await Promise.all(rows.map(serialize)));
   } catch (err) {
     next(err);
@@ -224,7 +232,10 @@ router.get("/:id", async (req, res, next) => {
   try {
     const { rows } = await pool.query("SELECT * FROM employees WHERE id = $1", [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: "Employee not found" });
-    if (req.user.role !== "admin" && rows[0].line_id !== req.user.lineId) {
+    if (req.user.role === "shift_leader" && rows[0].line_id !== req.user.lineId) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+    if (req.user.role === "employee" && req.params.id !== req.user.employeeId) {
       return res.status(404).json({ error: "Employee not found" });
     }
     res.json(await serialize(rows[0]));
@@ -235,6 +246,7 @@ router.get("/:id", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
+    if (req.user.role === "employee") return res.status(403).json({ error: "พนักงานไม่สามารถเพิ่มพนักงานได้" });
     const { errors, out } = validateBody(req.body || {});
 
     const bodyLineId = typeof req.body.lineId === "string" ? req.body.lineId.trim() : "";
@@ -265,6 +277,7 @@ router.post("/", async (req, res, next) => {
 
 router.put("/:id", async (req, res, next) => {
   try {
+    if (req.user.role === "employee") return res.status(403).json({ error: "พนักงานไม่สามารถแก้ไขข้อมูลนี้ได้" });
     const existing = await pool.query("SELECT id, line_id FROM employees WHERE id = $1", [req.params.id]);
     if (!existing.rows[0]) return res.status(404).json({ error: "Employee not found" });
     if (req.user.role !== "admin" && existing.rows[0].line_id !== req.user.lineId) {

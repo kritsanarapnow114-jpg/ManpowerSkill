@@ -2,7 +2,10 @@
 
 const express = require("express");
 const { pool, ready } = require("../db");
-const { G1_AXES, G2_AXES, POSITIONS, LEVELS, GENDERS, ATTENDANCE_TYPES, DEFAULT_LEAVE_QUOTA, TASK_LEVELS, STATION_LEVELS } = require("../labels");
+const {
+  G1_AXES_BY_POSITION, G2_AXES_BY_POSITION, DEFAULT_POSITION, POSITIONS, LEVELS, GENDERS,
+  ATTENDANCE_TYPES, DEFAULT_LEAVE_QUOTA, TASK_LEVELS, STATION_LEVELS,
+} = require("../labels");
 
 const router = express.Router();
 
@@ -20,8 +23,9 @@ router.get("/", async (req, res, next) => {
     const { rows: lineRows } = await pool.query("SELECT id, name FROM lines ORDER BY sort_order, name");
 
     res.json({
-      g1Axes: G1_AXES,
-      g2Axes: G2_AXES,
+      g1AxesByPosition: G1_AXES_BY_POSITION,
+      g2AxesByPosition: G2_AXES_BY_POSITION,
+      defaultPosition: DEFAULT_POSITION,
       stations,
       positions,
       levels: LEVELS,
