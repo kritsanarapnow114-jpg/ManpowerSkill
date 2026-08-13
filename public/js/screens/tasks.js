@@ -119,6 +119,7 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
           ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}${t.revisionCount ? ` · ส่งกลับแก้ไขแล้ว ${t.revisionCount} ครั้ง` : ""}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
+        ${t.stationName ? `<span class="task-badge" style="color:#6d4aa8;background:#ece5f8">📍 ${escapeHtml(t.stationName)}</span>` : ""}
         ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
         ${distributable ? `<button class="btn-outline" data-action="${panelOpen ? "cancel-distribute-task" : "open-distribute-task"}" data-task-id="${escapeHtml(t.id)}">${panelOpen ? "ปิด" : "เลือกคนทำ →"}</button>` : ""}
         <button class="btn-complete" data-action="complete-task" data-task-id="${escapeHtml(t.id)}">${icons.check || ""} เสร็จสิ้น</button>
@@ -155,6 +156,7 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
           ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}${t.revisionCount ? ` · ส่งกลับแก้ไขแล้ว ${t.revisionCount} ครั้ง` : ""}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
+        ${t.stationName ? `<span class="task-badge" style="color:#6d4aa8;background:#ece5f8">📍 ${escapeHtml(t.stationName)}</span>` : ""}
         <span class="task-badge" style="color:#0f7a34;background:#dcfce7">เสร็จแล้ว</span>
         <button class="btn-outline" data-action="${revisionPanelOpen ? "cancel-revision-task" : "open-revision-task"}" data-task-id="${escapeHtml(t.id)}">${revisionPanelOpen ? "ปิด" : "สั่งแก้ไข"}</button>
         <button class="btn-ghost-sm" data-action="reopen-task" data-task-id="${escapeHtml(t.id)}">ย้อนกลับ</button>
@@ -201,6 +203,13 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
           <label class="assign-field due">ทักษะที่เกี่ยวข้อง (ถ้ามี)
             <select class="field-input" id="task-axis-select" ${selectedEmps.length > 1 && !commonPosition ? "disabled" : ""}>${axisOptions}</select>
             ${selectedEmps.length > 1 && !commonPosition ? `<small style="color:#8494a1;font-size:11px">เลือกได้เมื่อทุกคนตำแหน่งเดียวกัน</small>` : ""}
+          </label>
+          <label class="assign-field due">ผูกกับสถานี (ถ้ามี)
+            <select class="field-input" id="task-station-select">
+              <option value="" ${!taskForm.stationId ? "selected" : ""}>ไม่ผูกกับสถานี</option>
+              ${meta.stations.map((s) => `<option value="${escapeHtml(s.id)}" ${taskForm.stationId === s.id ? "selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}
+            </select>
+            <small style="color:#8494a1;font-size:11px">เมื่อกดเสร็จสิ้นจะให้กรอกชั่วโมงและบันทึกลงสถานีนี้ให้อัตโนมัติ</small>
           </label>
           <button class="btn-gradient" data-action="add-task">${icons.plus} มอบหมาย</button>
         </div>

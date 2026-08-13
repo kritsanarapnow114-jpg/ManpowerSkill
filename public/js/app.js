@@ -30,7 +30,7 @@ const state = {
   screen: "list",
   selId: null,
   draft: null,
-  taskForm: { employeeIds: [], empSearch: "", title: "", description: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" },
+  taskForm: { employeeIds: [], empSearch: "", title: "", description: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "", stationId: "" },
   recurringTasks: [],
   recurringAchievements: [],
   taskDistribute: { openTaskId: null, selection: [] },
@@ -48,6 +48,7 @@ const state = {
   userForm: { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: null, employeeId: null },
   lineForm: { name: "" },
   myWorkLogForm: { stationId: null, date: todayISO(), hours: "", note: "" },
+  myTaskComplete: { openTaskId: null, hours: "", note: "" },
   loading: true,
   error: null,
 };
@@ -245,6 +246,7 @@ async function addTask() {
       payload.axisGroup = state.taskForm.axisGroup;
       payload.axisIndex = state.taskForm.axisIndex;
     }
+    if (state.taskForm.stationId) payload.stationId = state.taskForm.stationId;
     if (frequency) {
       payload.frequency = frequency;
       await api.createRecurringTask(payload);
@@ -261,6 +263,7 @@ async function addTask() {
     state.taskForm.axisGroup = "";
     state.taskForm.axisIndex = null;
     state.taskForm.frequency = "";
+    state.taskForm.stationId = "";
     state.error = null;
   } catch (err) {
     state.error = "มอบหมายงานไม่สำเร็จ: " + err.message;
@@ -724,6 +727,46 @@ async function myReopenTask(taskId) {
   render();
 }
 
+// A task linked to a station asks for hours right when it's marked done, so completing it also
+// logs the work-log entry in one step instead of typing the same shift twice.
+function openMyCompleteTask(taskId) {
+  state.myTaskComplete = { openTaskId: taskId, hours: "", note: "" };
+  render();
+}
+
+function cancelMyCompleteTask() {
+  state.myTaskComplete = { openTaskId: null, hours: "", note: "" };
+  render();
+}
+
+async function confirmMyCompleteTask(taskId) {
+  const self = findSelf();
+  const task = self && self.tasks.find((t) => t.id === taskId);
+  const hours = Number(state.myTaskComplete.hours);
+  if (!Number.isFinite(hours) || hours <= 0) {
+    state.error = "กรุณากรอกจำนวนชั่วโมงให้ถูกต้อง";
+    render();
+    return;
+  }
+  try {
+    await api.setTaskDone(taskId, true);
+    if (task && task.stationId) {
+      await api.createWorkLog({
+        stationId: task.stationId,
+        date: todayISO(),
+        hours,
+        note: state.myTaskComplete.note || `จากงาน: ${task.title}`,
+      });
+    }
+    await refreshMyData();
+    state.myTaskComplete = { openTaskId: null, hours: "", note: "" };
+    state.error = null;
+  } catch (err) {
+    state.error = "บันทึกไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
 async function myAddWorkLog() {
   const stationId = state.myWorkLogForm.stationId || (state.meta.stations[0] && state.meta.stations[0].id);
   const hours = Number(state.myWorkLogForm.hours);
@@ -763,7 +806,7 @@ function resetAppState() {
   state.screen = "list";
   state.selId = null;
   state.draft = null;
-  state.taskForm = { employeeIds: [], empSearch: "", title: "", description: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" };
+  state.taskForm = { employeeIds: [], empSearch: "", title: "", description: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "", stationId: "" };
   state.taskDistribute = { openTaskId: null, selection: [] };
   state.taskRevise = { openTaskId: null, note: "" };
   state.recurringTasks = [];
@@ -777,6 +820,7 @@ function resetAppState() {
   state.achievementForm = { employeeId: null, title: "", date: todayISO(), note: "", axisGroup: "", axisIndex: null, frequency: "" };
   state.workLogs = [];
   state.workLogForm = { employeeId: null, stationId: null, date: todayISO(), hours: "", note: "" };
+  state.myTaskComplete = { openTaskId: null, hours: "", note: "" };
   state.users = [];
   state.userForm = { editingId: null, username: "", displayName: "", password: "", role: "shift_leader", lineId: null };
   state.lineForm = { name: "" };
@@ -876,7 +920,7 @@ function renderEmployeeShell() {
   } else if (myScreen === "team-tasks") {
     content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true, currentUser: state.currentUser, distribute: state.taskDistribute, revise: state.taskRevise });
   } else if (myScreen === "my-tasks") {
-    content = renderMyTasks({ tasks: self ? self.tasks : [] });
+    content = renderMyTasks({ tasks: self ? self.tasks : [], complete: state.myTaskComplete });
   } else if (myScreen === "my-worklog") {
     content = renderMyWorkLog({ stations: state.meta.stations, logs: state.workLogs, form: state.myWorkLogForm, hazardTypes: state.meta.hazardTypes });
   } else {
@@ -1138,6 +1182,9 @@ appEl.addEventListener("click", (e) => {
   else if (action === "go-my-tasks") go("my-tasks");
   else if (action === "my-complete-task") myCompleteTask(actionEl.dataset.taskId);
   else if (action === "my-reopen-task") myReopenTask(actionEl.dataset.taskId);
+  else if (action === "open-my-complete-task") openMyCompleteTask(actionEl.dataset.taskId);
+  else if (action === "cancel-my-complete-task") cancelMyCompleteTask();
+  else if (action === "confirm-my-complete-task") confirmMyCompleteTask(actionEl.dataset.taskId);
   else if (action === "my-add-worklog") myAddWorkLog();
   else if (action === "my-delete-worklog") myDeleteWorkLog(actionEl.dataset.id);
 });
@@ -1203,6 +1250,10 @@ appEl.addEventListener("input", (e) => {
     state.myWorkLogForm.hours = t.value;
   } else if (t.id === "my-wl-note-input") {
     state.myWorkLogForm.note = t.value;
+  } else if (t.id === "my-task-complete-hours-input") {
+    state.myTaskComplete.hours = t.value;
+  } else if (t.id === "my-task-complete-note-input") {
+    state.myTaskComplete.note = t.value;
   }
 });
 
@@ -1230,6 +1281,8 @@ appEl.addEventListener("change", (e) => {
     }
   } else if (t.id === "task-frequency-select") {
     state.taskForm.frequency = t.value;
+  } else if (t.id === "task-station-select") {
+    state.taskForm.stationId = t.value;
   } else if (t.id === "ach-frequency-select") {
     state.achievementForm.frequency = t.value;
   } else if (t.id === "att-emp-select") {

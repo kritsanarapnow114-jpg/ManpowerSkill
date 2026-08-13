@@ -100,6 +100,11 @@ const SCHEMA_SQL = `
 
   ALTER TABLE stations ADD COLUMN IF NOT EXISTS hazards JSONB NOT NULL DEFAULT '[]';
 
+  -- Optional link from a task to the station it represents hands-on work at. When set, marking
+  -- the task done can also log the hours worked at that station in one step (see the
+  -- "complete task -> log hours" flow driven from POST /api/worklogs) instead of typing it twice.
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS station_id TEXT REFERENCES stations(id) ON DELETE SET NULL;
+
   CREATE TABLE IF NOT EXISTS certificates (
     id TEXT PRIMARY KEY,
     employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -139,6 +144,7 @@ const SCHEMA_SQL = `
   );
 
   ALTER TABLE recurring_tasks ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+  ALTER TABLE recurring_tasks ADD COLUMN IF NOT EXISTS station_id TEXT REFERENCES stations(id) ON DELETE SET NULL;
 
   CREATE TABLE IF NOT EXISTS recurring_task_assignees (
     recurring_task_id TEXT NOT NULL REFERENCES recurring_tasks(id) ON DELETE CASCADE,

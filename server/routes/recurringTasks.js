@@ -33,10 +33,16 @@ async function serialize(row) {
     );
     if (userRows[0]) assignedBy = userRows[0];
   }
+  let stationName = null;
+  if (row.station_id) {
+    const { rows: stnRows } = await pool.query("SELECT name FROM stations WHERE id = $1", [row.station_id]);
+    if (stnRows[0]) stationName = stnRows[0].name;
+  }
   return {
     id: row.id, title: row.title, description: row.description, level: row.level,
     axisGroup: row.axis_group, axisIndex: row.axis_index,
     frequency: row.frequency, employeeIds: rows.map((r) => r.employee_id), assignedBy,
+    stationId: row.station_id, stationName,
   };
 }
 
@@ -62,12 +68,19 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const { employeeIds, title, description, level, frequency, axisGroup, axisIndex } = req.body || {};
+    const { employeeIds, title, description, level, frequency, axisGroup, axisIndex, stationId } = req.body || {};
     const ids = Array.isArray(employeeIds) ? [...new Set(employeeIds)] : [];
     if (!ids.length) return res.status(400).json({ error: "employeeIds must be a non-empty array" });
     if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title is required" });
     if (!TASK_LEVELS.includes(level)) return res.status(400).json({ error: `level must be one of ${TASK_LEVELS.join(", ")}` });
     if (!FREQUENCIES.includes(frequency)) return res.status(400).json({ error: `frequency must be one of ${FREQUENCIES.join(", ")}` });
+
+    let stnId = null;
+    if (typeof stationId === "string" && stationId) {
+      const stn = await pool.query("SELECT id FROM stations WHERE id = $1", [stationId]);
+      if (!stn.rows[0]) return res.status(400).json({ error: "invalid stationId" });
+      stnId = stationId;
+    }
 
     const empCheck = await pool.query("SELECT id, line_id, position FROM employees WHERE id = ANY($1)", [ids]);
     if (empCheck.rows.length !== ids.length) return res.status(400).json({ error: "Some employeeIds are invalid" });
@@ -88,8 +101,8 @@ router.post("/", async (req, res, next) => {
 
     const id = "RT" + Date.now();
     await pool.query(
-      "INSERT INTO recurring_tasks (id, title, description, level, axis_group, axis_index, frequency, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-      [id, title.trim(), typeof description === "string" ? description.trim() : "", level, axGroup, axIndex, frequency, req.user.userId]
+      "INSERT INTO recurring_tasks (id, title, description, level, axis_group, axis_index, frequency, assigned_by, station_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      [id, title.trim(), typeof description === "string" ? description.trim() : "", level, axGroup, axIndex, frequency, req.user.userId, stnId]
     );
     for (const empId of ids) {
       await pool.query(

@@ -1,11 +1,32 @@
 import { taskLevelColor, isTaskOverdue, escapeHtml } from "../format.js";
 import { icons } from "../icons.js";
 
-export function renderMyTasks({ tasks }) {
+export function renderMyTasks({ tasks, complete = null }) {
   const cards = tasks.map((t) => {
     const overdue = isTaskOverdue(t.due, t.done);
+    const completePanelOpen = !t.done && t.stationId && complete && complete.openTaskId === t.id;
+    const completePanel = completePanelOpen ? `
+      <div class="task-distribute-panel">
+        <div class="task-distribute-title">บันทึกชั่วโมงทำงานที่สถานี ${escapeHtml(t.stationName || "")}</div>
+        <div class="assign-row">
+          <label class="assign-field due">ชั่วโมง
+            <input type="number" min="0" max="24" step="0.5" class="field-input" id="my-task-complete-hours-input" value="${escapeHtml(complete.hours)}">
+          </label>
+          <label class="assign-field title">หมายเหตุ (ถ้ามี)
+            <input class="field-input" id="my-task-complete-note-input" value="${escapeHtml(complete.note)}" placeholder="เช่น กะเช้า">
+          </label>
+        </div>
+        <div class="task-distribute-actions">
+          <button class="btn-gradient" data-action="confirm-my-complete-task" data-task-id="${escapeHtml(t.id)}">เสร็จสิ้น &amp; บันทึกชั่วโมง</button>
+          <button class="btn-outline" data-action="cancel-my-complete-task">ยกเลิก</button>
+        </div>
+      </div>
+    ` : "";
+    const completeButton = t.stationId
+      ? `<button class="btn-complete" data-action="${completePanelOpen ? "cancel-my-complete-task" : "open-my-complete-task"}" data-task-id="${escapeHtml(t.id)}">${completePanelOpen ? "ปิด" : `${icons.check} เสร็จสิ้น`}</button>`
+      : `<button class="btn-complete" data-action="my-complete-task" data-task-id="${escapeHtml(t.id)}">${icons.check} เสร็จสิ้น</button>`;
     return `
-      <div class="task-card${t.done ? " task-card-done" : ""}">
+      <div class="task-card${t.done ? " task-card-done" : ""}${completePanelOpen ? " task-card-expanded" : ""}">
         <div class="task-card-body">
           <div class="task-card-title">${escapeHtml(t.title)}</div>
           ${t.description ? `<div class="task-card-description">${escapeHtml(t.description)}</div>` : ""}
@@ -14,10 +35,12 @@ export function renderMyTasks({ tasks }) {
           ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
+        ${t.stationName ? `<span class="task-badge" style="color:#6d4aa8;background:#ece5f8">📍 ${escapeHtml(t.stationName)}</span>` : ""}
         ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
         ${t.done
           ? `<span class="task-badge" style="color:#0f7a34;background:#dcfce7">เสร็จแล้ว</span><button class="btn-ghost-sm" data-action="my-reopen-task" data-task-id="${escapeHtml(t.id)}">ย้อนกลับ</button>`
-          : `<button class="btn-complete" data-action="my-complete-task" data-task-id="${escapeHtml(t.id)}">${icons.check} เสร็จสิ้น</button>`}
+          : completeButton}
+        ${completePanel}
       </div>
     `;
   }).join("");

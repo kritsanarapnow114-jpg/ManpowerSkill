@@ -42,8 +42,8 @@ async function generateTaskIfDue(tpl, todayStr) {
   if (assignees.length) {
     const taskId = "T" + Date.now() + "-" + tpl.id;
     await pool.query(
-      "INSERT INTO tasks (id, title, description, due, level, axis_group, axis_index, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-      [taskId, tpl.title, tpl.description || "", periodDue(tpl.frequency, todayStr), tpl.level, tpl.axis_group, tpl.axis_index, tpl.assigned_by]
+      "INSERT INTO tasks (id, title, description, due, level, axis_group, axis_index, assigned_by, station_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      [taskId, tpl.title, tpl.description || "", periodDue(tpl.frequency, todayStr), tpl.level, tpl.axis_group, tpl.axis_index, tpl.assigned_by, tpl.station_id]
     );
     for (let i = 0; i < assignees.length; i++) {
       await pool.query(

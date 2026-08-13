@@ -62,6 +62,7 @@ router.get("/", async (req, res, next) => {
     }
     const { rows } = await pool.query(
       `SELECT t.id, t.title, t.description, t.due, t.level, t.axis_group, t.axis_index,
+         t.station_id, s.name AS station_name,
          u.id AS assigner_id, COALESCE(NULLIF(u.display_name, ''), u.username) AS assigner_name,
          COALESCE(bool_and(ta.done), false) AS done,
          COALESCE((SELECT COUNT(*)::int FROM task_revisions tr WHERE tr.task_id = t.id), 0) AS revision_count,
@@ -70,8 +71,9 @@ router.get("/", async (req, res, next) => {
        JOIN task_assignments ta ON ta.task_id = t.id
        JOIN employees e ON e.id = ta.employee_id
        LEFT JOIN users u ON u.id = t.assigned_by
+       LEFT JOIN stations s ON s.id = t.station_id
        ${whereClause}
-       GROUP BY t.id, u.id, u.display_name, u.username
+       GROUP BY t.id, u.id, u.display_name, u.username, s.name
        ORDER BY t.created_at DESC`,
       params
     );
@@ -80,6 +82,7 @@ router.get("/", async (req, res, next) => {
       axisGroup: r.axis_group, axisIndex: r.axis_index, done: r.done, assignees: r.assignees,
       assignedBy: r.assigner_id ? { id: r.assigner_id, name: r.assigner_name } : null,
       revisionCount: r.revision_count,
+      stationId: r.station_id, stationName: r.station_name,
     })));
   } catch (err) {
     next(err);
@@ -96,11 +99,18 @@ router.post("/", async (req, res, next) => {
       teamMemberIds = await fetchTeamMemberIds(req.user.employeeId);
     }
 
-    const { employeeIds, title, description, due, level, axisGroup, axisIndex } = req.body || {};
+    const { employeeIds, title, description, due, level, axisGroup, axisIndex, stationId } = req.body || {};
     const ids = Array.isArray(employeeIds) ? [...new Set(employeeIds)] : [];
     if (!ids.length) return res.status(400).json({ error: "employeeIds must be a non-empty array" });
     if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title is required" });
     if (!TASK_LEVELS.includes(level)) return res.status(400).json({ error: `level must be one of ${TASK_LEVELS.join(", ")}` });
+
+    let stnId = null;
+    if (typeof stationId === "string" && stationId) {
+      const stn = await pool.query("SELECT id FROM stations WHERE id = $1", [stationId]);
+      if (!stn.rows[0]) return res.status(400).json({ error: "invalid stationId" });
+      stnId = stationId;
+    }
 
     const empCheck = await pool.query("SELECT id, line_id, position FROM employees WHERE id = ANY($1)", [ids]);
     if (empCheck.rows.length !== ids.length) return res.status(400).json({ error: "Some employeeIds are invalid" });
@@ -127,8 +137,8 @@ router.post("/", async (req, res, next) => {
 
     const id = "T" + Date.now();
     await pool.query(
-      "INSERT INTO tasks (id, title, description, due, level, axis_group, axis_index, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-      [id, title.trim(), typeof description === "string" ? description.trim() : "", typeof due === "string" ? due.trim() : "", level, axGroup, axIndex, req.user.userId]
+      "INSERT INTO tasks (id, title, description, due, level, axis_group, axis_index, assigned_by, station_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      [id, title.trim(), typeof description === "string" ? description.trim() : "", typeof due === "string" ? due.trim() : "", level, axGroup, axIndex, req.user.userId, stnId]
     );
     for (let i = 0; i < ids.length; i++) {
       await pool.query(
