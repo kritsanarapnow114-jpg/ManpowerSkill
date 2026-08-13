@@ -115,6 +115,7 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
             <div class="avatar-stack">${avatars}</div>
             <span>${t.assignees.length} คน · ${escapeHtml(names)}</span>
           </div>
+          ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
         ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
@@ -138,6 +139,7 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
             <div class="avatar-stack">${avatars}</div>
             <span>${t.assignees.length} คน · ${escapeHtml(names)}</span>
           </div>
+          ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
         <span class="task-badge" style="color:#0f7a34;background:#dcfce7">เสร็จแล้ว</span>
@@ -225,7 +227,7 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
                   <span class="recurring-freq-badge">${escapeHtml(FREQUENCY_LABELS[r.frequency] || r.frequency)}</span>
                   <div class="recurring-row-body">
                     <div class="recurring-row-title">${escapeHtml(r.title)}</div>
-                    <div class="recurring-row-meta">${escapeHtml(names)}</div>
+                    <div class="recurring-row-meta">${escapeHtml(names)}${r.assignedBy ? " · ตั้งโดย " + escapeHtml(r.assignedBy.name) : ""}</div>
                   </div>
                   <button class="btn-icon" title="ยกเลิกงานประจำ" data-action="delete-recurring-task" data-id="${escapeHtml(r.id)}">${icons.trash}</button>
                 </div>

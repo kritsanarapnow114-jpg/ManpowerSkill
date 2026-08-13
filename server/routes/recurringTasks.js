@@ -25,10 +25,18 @@ async function serialize(row) {
     "SELECT employee_id FROM recurring_task_assignees WHERE recurring_task_id = $1",
     [row.id]
   );
+  let assignedBy = null;
+  if (row.assigned_by) {
+    const { rows: userRows } = await pool.query(
+      "SELECT id, COALESCE(NULLIF(display_name, ''), username) AS name FROM users WHERE id = $1",
+      [row.assigned_by]
+    );
+    if (userRows[0]) assignedBy = userRows[0];
+  }
   return {
     id: row.id, title: row.title, level: row.level,
     axisGroup: row.axis_group, axisIndex: row.axis_index,
-    frequency: row.frequency, employeeIds: rows.map((r) => r.employee_id),
+    frequency: row.frequency, employeeIds: rows.map((r) => r.employee_id), assignedBy,
   };
 }
 
@@ -80,8 +88,8 @@ router.post("/", async (req, res, next) => {
 
     const id = "RT" + Date.now();
     await pool.query(
-      "INSERT INTO recurring_tasks (id, title, level, axis_group, axis_index, frequency) VALUES ($1,$2,$3,$4,$5,$6)",
-      [id, title.trim(), level, axGroup, axIndex, frequency]
+      "INSERT INTO recurring_tasks (id, title, level, axis_group, axis_index, frequency, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [id, title.trim(), level, axGroup, axIndex, frequency, req.user.userId]
     );
     for (const empId of ids) {
       await pool.query(

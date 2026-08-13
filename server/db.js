@@ -192,6 +192,12 @@ const SCHEMA_SQL = `
 
   ALTER TABLE users ADD COLUMN IF NOT EXISTS employee_id TEXT REFERENCES employees(id) ON DELETE CASCADE;
 
+  -- Who assigned a task (the logged-in account, not an employee - admin/shift_leader accounts
+  -- aren't employees). Placed after "users" exists since it references it; SET NULL on delete so
+  -- removing an account doesn't take its past assignments down with it.
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE recurring_tasks ADD COLUMN IF NOT EXISTS assigned_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+
   -- Tracks one-off data migrations that have no reliable structural marker to guard on.
   CREATE TABLE IF NOT EXISTS schema_flags (
     key TEXT PRIMARY KEY,

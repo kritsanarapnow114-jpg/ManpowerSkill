@@ -305,6 +305,7 @@ button { font-family: inherit; }
 .task-card-due { font-size: 11.5px; color: #94a1ac; margin-top: 2px; }
 .task-card-assignees { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11.5px; color: #8494a1; overflow: hidden; }
 .task-card-assignees span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-card-assigner { font-size: 11px; color: #a3b0ba; margin-top: 2px; }
 .avatar-stack { display: flex; flex: none; }
 .avatar-stack .avatar-sm { margin-left: -8px; border: 2px solid #fff; }
 .avatar-stack .avatar-sm:first-child { margin-left: 0; }

@@ -10,6 +10,7 @@ export function renderMyTasks({ tasks }) {
           <div class="task-card-title">${escapeHtml(t.title)}</div>
           <div class="task-card-due" style="${overdue ? "color:#dc2626;font-weight:700" : ""}">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
           ${t.otherAssignees && t.otherAssignees.length ? `<div class="task-card-assignees"><span>ร่วมกับ ${escapeHtml(t.otherAssignees.join(", "))}</span></div>` : ""}
+          ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
         ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}

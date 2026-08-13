@@ -62,19 +62,22 @@ router.get("/", async (req, res, next) => {
     }
     const { rows } = await pool.query(
       `SELECT t.id, t.title, t.due, t.level, t.axis_group, t.axis_index,
+         u.id AS assigner_id, COALESCE(NULLIF(u.display_name, ''), u.username) AS assigner_name,
          COALESCE(bool_and(ta.done), false) AS done,
          COALESCE(json_agg(json_build_object('id', e.id, 'nameEn', e.name_en, 'name', e.name, 'nickname', e.nickname, 'empCode', e.emp_code, 'level', e.level) ORDER BY e.emp_code), '[]') AS assignees
        FROM tasks t
        JOIN task_assignments ta ON ta.task_id = t.id
        JOIN employees e ON e.id = ta.employee_id
+       LEFT JOIN users u ON u.id = t.assigned_by
        ${whereClause}
-       GROUP BY t.id
+       GROUP BY t.id, u.id, u.display_name, u.username
        ORDER BY t.created_at DESC`,
       params
     );
     res.json(rows.map((r) => ({
       id: r.id, title: r.title, due: r.due, level: r.level,
       axisGroup: r.axis_group, axisIndex: r.axis_index, done: r.done, assignees: r.assignees,
+      assignedBy: r.assigner_id ? { id: r.assigner_id, name: r.assigner_name } : null,
     })));
   } catch (err) {
     next(err);
@@ -122,8 +125,8 @@ router.post("/", async (req, res, next) => {
 
     const id = "T" + Date.now();
     await pool.query(
-      "INSERT INTO tasks (id, title, due, level, axis_group, axis_index) VALUES ($1,$2,$3,$4,$5,$6)",
-      [id, title.trim(), typeof due === "string" ? due.trim() : "", level, axGroup, axIndex]
+      "INSERT INTO tasks (id, title, due, level, axis_group, axis_index, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [id, title.trim(), typeof due === "string" ? due.trim() : "", level, axGroup, axIndex, req.user.userId]
     );
     for (let i = 0; i < ids.length; i++) {
       await pool.query(
