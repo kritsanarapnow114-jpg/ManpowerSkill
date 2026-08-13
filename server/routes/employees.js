@@ -29,7 +29,7 @@ router.use(async (req, res, next) => {
 
 async function fetchTasks(employeeId) {
   const { rows } = await pool.query(
-    `SELECT ta.id AS assignment_id, ta.done, t.id AS task_id, t.title, t.due, t.level, t.axis_group, t.axis_index,
+    `SELECT ta.id AS assignment_id, ta.done, t.id AS task_id, t.title, t.description, t.due, t.level, t.axis_group, t.axis_index,
        u.id AS assigner_id, COALESCE(NULLIF(u.display_name, ''), u.username) AS assigner_name,
        (SELECT COALESCE(array_agg(e2.name_en ORDER BY e2.name_en), ARRAY[]::text[])
         FROM task_assignments ta2 JOIN employees e2 ON e2.id = ta2.employee_id
@@ -45,6 +45,7 @@ async function fetchTasks(employeeId) {
     id: t.task_id,
     assignmentId: t.assignment_id,
     title: t.title,
+    description: t.description,
     due: t.due,
     level: t.level,
     done: t.done,

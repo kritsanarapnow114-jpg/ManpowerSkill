@@ -47,6 +47,7 @@ export const api = {
   createTask: (data) => request("/api/tasks", json("POST", data)),
   setTaskDone: (taskId, done) => request(`/api/tasks/${taskId}`, json("PATCH", { done })),
   setTaskAssignees: (taskId, employeeIds) => request(`/api/tasks/${taskId}/assignees`, json("PUT", { employeeIds })),
+  requestTaskRevision: (taskId, note) => request(`/api/tasks/${taskId}/request-revision`, json("POST", { note })),
   deleteTask: (taskId) => request(`/api/tasks/${taskId}`, { method: "DELETE" }),
   listRecurringTasks: () => request("/api/recurring-tasks"),
   createRecurringTask: (data) => request("/api/recurring-tasks", json("POST", data)),

@@ -34,7 +34,7 @@ async function serialize(row) {
     if (userRows[0]) assignedBy = userRows[0];
   }
   return {
-    id: row.id, title: row.title, level: row.level,
+    id: row.id, title: row.title, description: row.description, level: row.level,
     axisGroup: row.axis_group, axisIndex: row.axis_index,
     frequency: row.frequency, employeeIds: rows.map((r) => r.employee_id), assignedBy,
   };
@@ -62,7 +62,7 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const { employeeIds, title, level, frequency, axisGroup, axisIndex } = req.body || {};
+    const { employeeIds, title, description, level, frequency, axisGroup, axisIndex } = req.body || {};
     const ids = Array.isArray(employeeIds) ? [...new Set(employeeIds)] : [];
     if (!ids.length) return res.status(400).json({ error: "employeeIds must be a non-empty array" });
     if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title is required" });
@@ -88,8 +88,8 @@ router.post("/", async (req, res, next) => {
 
     const id = "RT" + Date.now();
     await pool.query(
-      "INSERT INTO recurring_tasks (id, title, level, axis_group, axis_index, frequency, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-      [id, title.trim(), level, axGroup, axIndex, frequency, req.user.userId]
+      "INSERT INTO recurring_tasks (id, title, description, level, axis_group, axis_index, frequency, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+      [id, title.trim(), typeof description === "string" ? description.trim() : "", level, axGroup, axIndex, frequency, req.user.userId]
     );
     for (const empId of ids) {
       await pool.query(

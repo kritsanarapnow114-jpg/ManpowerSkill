@@ -23,7 +23,7 @@ export function renderEmpSuggestionItems(employees, query, excludeIds, action = 
   `).join("");
 }
 
-export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, currentUser = null, distribute = null, recurringTasks = [] }) {
+export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, currentUser = null, distribute = null, recurringTasks = [], revise = null }) {
   const tkAll = tasks.length;
   const tkDone = tasks.filter((t) => t.done).length;
   const tkOverdue = tasks.filter((t) => isTaskOverdue(t.due, t.done)).length;
@@ -110,12 +110,13 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
       <div class="task-card${panelOpen ? " task-card-expanded" : ""}">
         <div class="task-card-body">
           <div class="task-card-title">${escapeHtml(t.title)}</div>
+          ${t.description ? `<div class="task-card-description">${escapeHtml(t.description)}</div>` : ""}
           <div class="task-card-due" style="${overdue ? "color:#dc2626;font-weight:700" : ""}">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
           <div class="task-card-assignees">
             <div class="avatar-stack">${avatars}</div>
             <span>${t.assignees.length} คน · ${escapeHtml(names)}</span>
           </div>
-          ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}</div>` : ""}
+          ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}${t.revisionCount ? ` · ส่งกลับแก้ไขแล้ว ${t.revisionCount} ครั้ง` : ""}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
         ${overdue ? `<span class="task-badge" style="color:#b42318;background:#fde8e8">เลยกำหนด</span>` : ""}
@@ -130,21 +131,35 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
   const historyCards = historyTasks.map((t) => {
     const names = t.assignees.map((a) => a.nickname || a.nameEn).join(", ");
     const avatars = t.assignees.map((a) => `<div class="avatar-sm" title="${escapeHtml(a.nameEn)}" style="background:${avatarBg(a.level)}">${escapeHtml(initials(a.nameEn))}</div>`).join("");
+    const revisionPanelOpen = revise && revise.openTaskId === t.id;
+    const revisionPanel = revisionPanelOpen ? `
+      <div class="task-distribute-panel">
+        <div class="task-distribute-title">ระบุสิ่งที่ต้องแก้ไข</div>
+        <textarea class="field-input" id="revision-note-input" rows="2" placeholder="เช่น ตัวเลขในรายงานไม่ตรง กรุณาตรวจสอบใหม่" style="resize:vertical">${escapeHtml((revise && revise.note) || "")}</textarea>
+        <div class="task-distribute-actions">
+          <button class="btn-gradient" data-action="confirm-revision-task" data-task-id="${escapeHtml(t.id)}">ส่งกลับแก้ไข</button>
+          <button class="btn-outline" data-action="cancel-revision-task">ยกเลิก</button>
+        </div>
+      </div>
+    ` : "";
     return `
-      <div class="task-card task-card-done">
+      <div class="task-card task-card-done${revisionPanelOpen ? " task-card-expanded" : ""}">
         <div class="task-card-body">
           <div class="task-card-title">${escapeHtml(t.title)}</div>
+          ${t.description ? `<div class="task-card-description">${escapeHtml(t.description)}</div>` : ""}
           <div class="task-card-due">${t.due ? "กำหนดส่ง " + escapeHtml(t.due) : "ไม่มีกำหนด"}</div>
           <div class="task-card-assignees">
             <div class="avatar-stack">${avatars}</div>
             <span>${t.assignees.length} คน · ${escapeHtml(names)}</span>
           </div>
-          ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}</div>` : ""}
+          ${t.assignedBy ? `<div class="task-card-assigner">มอบหมายโดย ${escapeHtml(t.assignedBy.name)}${t.revisionCount ? ` · ส่งกลับแก้ไขแล้ว ${t.revisionCount} ครั้ง` : ""}</div>` : ""}
         </div>
         <span class="task-level-badge" style="background:${taskLevelColor(t.level)}1a;color:${taskLevelColor(t.level)}">${escapeHtml(t.level)}</span>
         <span class="task-badge" style="color:#0f7a34;background:#dcfce7">เสร็จแล้ว</span>
+        <button class="btn-outline" data-action="${revisionPanelOpen ? "cancel-revision-task" : "open-revision-task"}" data-task-id="${escapeHtml(t.id)}">${revisionPanelOpen ? "ปิด" : "สั่งแก้ไข"}</button>
         <button class="btn-ghost-sm" data-action="reopen-task" data-task-id="${escapeHtml(t.id)}">ย้อนกลับ</button>
         <button class="btn-icon" title="ลบงาน" data-action="delete-task" data-task-id="${escapeHtml(t.id)}">${icons.trash}</button>
+        ${revisionPanel}
       </div>
     `;
   }).join("");
@@ -189,6 +204,9 @@ export function renderTasks({ employees, tasks, taskForm, meta, showEnglish, cur
           </label>
           <button class="btn-gradient" data-action="add-task">${icons.plus} มอบหมาย</button>
         </div>
+        <label class="field-label" style="display:block;margin-top:12px">รายละเอียดงาน (ถ้ามี)
+          <textarea class="field-input" id="task-description-input" rows="2" placeholder="รายละเอียดเพิ่มเติมเกี่ยวกับงานนี้" style="margin-top:6px;resize:vertical">${escapeHtml(taskForm.description || "")}</textarea>
+        </label>
         <div class="task-assign-second-row">
           <div>
             <div class="field-label" style="margin-bottom:8px">ระดับความยาก</div>

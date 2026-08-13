@@ -30,10 +30,11 @@ const state = {
   screen: "list",
   selId: null,
   draft: null,
-  taskForm: { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" },
+  taskForm: { employeeIds: [], empSearch: "", title: "", description: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" },
   recurringTasks: [],
   recurringAchievements: [],
   taskDistribute: { openTaskId: null, selection: [] },
+  taskRevise: { openTaskId: null, note: "" },
   attendanceRecords: [],
   attendanceForm: { employeeId: null, type: "ลาป่วย", date: todayISO(), note: "" },
   stationForm: { editingId: null, code: "", name: "", image: "", hazards: [] },
@@ -239,7 +240,7 @@ async function addTask() {
   if (!title || !employeeIds.length) return;
   try {
     const frequency = state.taskForm.frequency;
-    const payload = { employeeIds, title, level: state.taskForm.level };
+    const payload = { employeeIds, title, description: (state.taskForm.description || "").trim(), level: state.taskForm.level };
     if (state.taskForm.axisGroup) {
       payload.axisGroup = state.taskForm.axisGroup;
       payload.axisIndex = state.taskForm.axisIndex;
@@ -253,6 +254,7 @@ async function addTask() {
     }
     await refreshTasks();
     state.taskForm.title = "";
+    state.taskForm.description = "";
     state.taskForm.due = "";
     state.taskForm.employeeIds = [];
     state.taskForm.empSearch = "";
@@ -316,6 +318,28 @@ async function confirmDistributeTask(taskId) {
     state.error = null;
   } catch (err) {
     state.error = "มอบหมายงานไม่สำเร็จ: " + err.message;
+  }
+  render();
+}
+
+function openRevisionTask(taskId) {
+  state.taskRevise = { openTaskId: taskId, note: "" };
+  render();
+}
+
+function cancelRevisionTask() {
+  state.taskRevise = { openTaskId: null, note: "" };
+  render();
+}
+
+async function confirmRevisionTask(taskId) {
+  try {
+    await api.requestTaskRevision(taskId, state.taskRevise.note || "");
+    await refreshTasks();
+    state.taskRevise = { openTaskId: null, note: "" };
+    state.error = null;
+  } catch (err) {
+    state.error = "ส่งกลับแก้ไขไม่สำเร็จ: " + err.message;
   }
   render();
 }
@@ -739,8 +763,9 @@ function resetAppState() {
   state.screen = "list";
   state.selId = null;
   state.draft = null;
-  state.taskForm = { employeeIds: [], empSearch: "", title: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" };
+  state.taskForm = { employeeIds: [], empSearch: "", title: "", description: "", due: "", level: "กลาง", axisGroup: "", axisIndex: null, frequency: "" };
   state.taskDistribute = { openTaskId: null, selection: [] };
+  state.taskRevise = { openTaskId: null, note: "" };
   state.recurringTasks = [];
   state.recurringAchievements = [];
   state.attendanceRecords = [];
@@ -849,7 +874,7 @@ function renderEmployeeShell() {
   if (state.loading) {
     content = `<div class="card">กำลังโหลดข้อมูล...</div>`;
   } else if (myScreen === "team-tasks") {
-    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true, currentUser: state.currentUser, distribute: state.taskDistribute });
+    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true, currentUser: state.currentUser, distribute: state.taskDistribute, revise: state.taskRevise });
   } else if (myScreen === "my-tasks") {
     content = renderMyTasks({ tasks: self ? self.tasks : [] });
   } else if (myScreen === "my-worklog") {
@@ -936,7 +961,7 @@ function renderShell() {
   } else if (screen === "list") {
     content = renderList({ employees: state.employees });
   } else if (screen === "tasks") {
-    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true, recurringTasks: state.recurringTasks });
+    content = renderTasks({ employees: state.employees, tasks: state.tasks, taskForm: state.taskForm, meta: state.meta, showEnglish: true, recurringTasks: state.recurringTasks, revise: state.taskRevise });
   } else if (screen === "attendance") {
     content = renderAttendance({ employees: state.employees, records: state.attendanceRecords, form: state.attendanceForm });
   } else if (screen === "stations") {
@@ -1084,6 +1109,9 @@ appEl.addEventListener("click", (e) => {
   else if (action === "open-distribute-task") openDistributeTask(actionEl.dataset.taskId);
   else if (action === "cancel-distribute-task") cancelDistributeTask();
   else if (action === "confirm-distribute-task") confirmDistributeTask(actionEl.dataset.taskId);
+  else if (action === "open-revision-task") openRevisionTask(actionEl.dataset.taskId);
+  else if (action === "cancel-revision-task") cancelRevisionTask();
+  else if (action === "confirm-revision-task") confirmRevisionTask(actionEl.dataset.taskId);
   else if (action === "add-attendance") addAttendance();
   else if (action === "delete-attendance") deleteAttendance(actionEl.dataset.id);
   else if (action === "edit-station") editStation(actionEl.dataset.id);
@@ -1122,6 +1150,10 @@ appEl.addEventListener("input", (e) => {
     setDraftLeaveQuota(t.dataset.leaveField, t.value);
   } else if (t.id === "task-title-input") {
     state.taskForm.title = t.value;
+  } else if (t.id === "task-description-input") {
+    state.taskForm.description = t.value;
+  } else if (t.id === "revision-note-input") {
+    state.taskRevise.note = t.value;
   } else if (t.id === "task-due-input") {
     state.taskForm.due = t.value;
   } else if (t.id === "task-emp-search") {

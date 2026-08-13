@@ -61,9 +61,10 @@ router.get("/", async (req, res, next) => {
       params = [[req.user.employeeId, ...memberIds]];
     }
     const { rows } = await pool.query(
-      `SELECT t.id, t.title, t.due, t.level, t.axis_group, t.axis_index,
+      `SELECT t.id, t.title, t.description, t.due, t.level, t.axis_group, t.axis_index,
          u.id AS assigner_id, COALESCE(NULLIF(u.display_name, ''), u.username) AS assigner_name,
          COALESCE(bool_and(ta.done), false) AS done,
+         COALESCE((SELECT COUNT(*)::int FROM task_revisions tr WHERE tr.task_id = t.id), 0) AS revision_count,
          COALESCE(json_agg(json_build_object('id', e.id, 'nameEn', e.name_en, 'name', e.name, 'nickname', e.nickname, 'empCode', e.emp_code, 'level', e.level) ORDER BY e.emp_code), '[]') AS assignees
        FROM tasks t
        JOIN task_assignments ta ON ta.task_id = t.id
@@ -75,9 +76,10 @@ router.get("/", async (req, res, next) => {
       params
     );
     res.json(rows.map((r) => ({
-      id: r.id, title: r.title, due: r.due, level: r.level,
+      id: r.id, title: r.title, description: r.description, due: r.due, level: r.level,
       axisGroup: r.axis_group, axisIndex: r.axis_index, done: r.done, assignees: r.assignees,
       assignedBy: r.assigner_id ? { id: r.assigner_id, name: r.assigner_name } : null,
+      revisionCount: r.revision_count,
     })));
   } catch (err) {
     next(err);
@@ -94,7 +96,7 @@ router.post("/", async (req, res, next) => {
       teamMemberIds = await fetchTeamMemberIds(req.user.employeeId);
     }
 
-    const { employeeIds, title, due, level, axisGroup, axisIndex } = req.body || {};
+    const { employeeIds, title, description, due, level, axisGroup, axisIndex } = req.body || {};
     const ids = Array.isArray(employeeIds) ? [...new Set(employeeIds)] : [];
     if (!ids.length) return res.status(400).json({ error: "employeeIds must be a non-empty array" });
     if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title is required" });
@@ -125,8 +127,8 @@ router.post("/", async (req, res, next) => {
 
     const id = "T" + Date.now();
     await pool.query(
-      "INSERT INTO tasks (id, title, due, level, axis_group, axis_index, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-      [id, title.trim(), typeof due === "string" ? due.trim() : "", level, axGroup, axIndex, req.user.userId]
+      "INSERT INTO tasks (id, title, description, due, level, axis_group, axis_index, assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+      [id, title.trim(), typeof description === "string" ? description.trim() : "", typeof due === "string" ? due.trim() : "", level, axGroup, axIndex, req.user.userId]
     );
     for (let i = 0; i < ids.length; i++) {
       await pool.query(
@@ -165,6 +167,39 @@ router.patch("/:id", async (req, res, next) => {
       [newDone, req.params.id]
     );
     res.json({ id: req.params.id, done: newDone });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Sends a task back for revision - reopens it (undoes "done" for every assignee) and records the
+// event. The penalty for this lands on the *assigner*, not the person who did the work: see
+// server/skillscore.js, which counts revisions against whichever employee (if any) is linked to
+// the account that originally assigned the task, as a real signal on their delegation/QC quality.
+router.post("/:id/request-revision", async (req, res, next) => {
+  try {
+    const task = await pool.query("SELECT id FROM tasks WHERE id = $1", [req.params.id]);
+    if (!task.rows[0]) return res.status(404).json({ error: "Task not found" });
+    if (req.user.role === "shift_leader" && !(await taskInvolvesLine(req.params.id, req.user.lineId))) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+    if (req.user.role === "employee") {
+      const lead = await isTeamLead(req.user.employeeId);
+      const memberIds = lead ? await fetchTeamMemberIds(req.user.employeeId) : [];
+      const withinTeam = lead && (await taskAssigneesWithinSet(req.params.id, [req.user.employeeId, ...memberIds]));
+      if (!withinTeam) return res.status(404).json({ error: "Task not found" });
+    }
+
+    const note = typeof (req.body && req.body.note) === "string" ? req.body.note.trim() : "";
+
+    await pool.query("UPDATE task_assignments SET done = false, done_at = NULL WHERE task_id = $1", [req.params.id]);
+    const id = "TR" + Date.now();
+    await pool.query(
+      "INSERT INTO task_revisions (id, task_id, requested_by, note) VALUES ($1,$2,$3,$4)",
+      [id, req.params.id, req.user.userId, note]
+    );
+
+    res.status(201).json({ id, taskId: req.params.id, note });
   } catch (err) {
     next(err);
   }

@@ -68,6 +68,7 @@ const SCHEMA_SQL = `
   ALTER TABLE tasks ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'กลาง';
   ALTER TABLE tasks ADD COLUMN IF NOT EXISTS axis_group TEXT;
   ALTER TABLE tasks ADD COLUMN IF NOT EXISTS axis_index INTEGER;
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 
   CREATE TABLE IF NOT EXISTS task_assignments (
     id TEXT PRIMARY KEY,
@@ -137,6 +138,8 @@ const SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
 
+  ALTER TABLE recurring_tasks ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+
   CREATE TABLE IF NOT EXISTS recurring_task_assignees (
     recurring_task_id TEXT NOT NULL REFERENCES recurring_tasks(id) ON DELETE CASCADE,
     employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -197,6 +200,17 @@ const SCHEMA_SQL = `
   -- removing an account doesn't take its past assignments down with it.
   ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_by TEXT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE recurring_tasks ADD COLUMN IF NOT EXISTS assigned_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+  -- Each row is one "send this back for revision" event - reopens the task and, if the task's
+  -- assigner is themselves a tracked employee (e.g. a team lead), counts against their own skill
+  -- score (see server/skillscore.js) as a real signal on their delegation/QC quality.
+  CREATE TABLE IF NOT EXISTS task_revisions (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
 
   -- Tracks one-off data migrations that have no reliable structural marker to guard on.
   CREATE TABLE IF NOT EXISTS schema_flags (

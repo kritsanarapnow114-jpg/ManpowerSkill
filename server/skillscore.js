@@ -12,6 +12,7 @@ const ATTENDANCE_LATE_PENALTY = 8; // per "มาสาย" in the window
 const ATTENDANCE_ABSENCE_PENALTY = 15; // per unexcused "ขาด" in the window
 const ACHIEVEMENT_CREDIT = 20; // per achievement logged in the window, capped at 100
 const STATION_TARGET_HOURS = 40; // recent hours at a matched station considered "full" proficiency
+const REVISION_PENALTY = 10; // per "sent back for revision" event on work this employee assigned, in the window
 
 function windowStart() {
   return new Date(Date.now() - WINDOW_DAYS * 86400000);
@@ -28,7 +29,7 @@ async function fetchWindowedData(employeeId) {
   const since = windowStart();
   const sinceDate = since.toISOString().slice(0, 10);
 
-  const [taskRows, attendanceRows, achievementRows, workLogRows] = await Promise.all([
+  const [taskRows, attendanceRows, achievementRows, workLogRows, revisionRows] = await Promise.all([
     pool.query(
       `SELECT t.axis_group, t.axis_index, t.level, t.due, ta.done, ta.done_at
        FROM task_assignments ta JOIN tasks t ON t.id = ta.task_id
@@ -51,6 +52,15 @@ async function fetchWindowedData(employeeId) {
        GROUP BY s.name`,
       [employeeId, sinceDate]
     ),
+    // Revisions on work THIS employee assigned to others (not work assigned to them) - a
+    // delegation/QC-quality signal, only meaningful if they have a login (e.g. a team lead).
+    pool.query(
+      `SELECT COUNT(*)::int AS n FROM task_revisions tr
+       JOIN tasks t ON t.id = tr.task_id
+       JOIN users u ON u.id = t.assigned_by
+       WHERE u.employee_id = $1 AND tr.created_at >= $2`,
+      [employeeId, since.toISOString()]
+    ),
   ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -69,6 +79,7 @@ async function fetchWindowedData(employeeId) {
     absenceCount: byType["ขาด"] || 0,
     achievements: achievementRows.rows,
     stationHours: workLogRows.rows,
+    revisionCount: revisionRows.rows[0].n,
   };
 }
 
@@ -139,9 +150,13 @@ function scoreOneAxis(axis, group, index, data) {
 
 async function computeSkillScores(employeeId, g1Axes, g2Axes) {
   const data = await fetchWindowedData(employeeId);
+  // A flat penalty across every axis, not a per-axis signal - sending work you assigned back for
+  // revision reflects on your overall delegation/QC quality rather than one specific skill.
+  const revisionPenalty = data.revisionCount * REVISION_PENALTY;
+  const applyPenalty = (score) => Math.max(0, score - revisionPenalty);
   return {
-    g1: g1Axes.map((axis, i) => scoreOneAxis(axis, "g1", i, data)),
-    g2: g2Axes.map((axis, i) => scoreOneAxis(axis, "g2", i, data)),
+    g1: g1Axes.map((axis, i) => applyPenalty(scoreOneAxis(axis, "g1", i, data))),
+    g2: g2Axes.map((axis, i) => applyPenalty(scoreOneAxis(axis, "g2", i, data))),
   };
 }
 
